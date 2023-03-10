@@ -64,19 +64,15 @@
       return { dir: 1, floored: false, x, y, width, height, xSpeed, vSpeed };
     }
 
+    function newAnimationData(action, state, frameIndex, previousTime, moreAttr) {
+      return { action, state, frameIndex, previousTime, currFrame: 0, ...moreAttr };
+    }
+
     const Projectiles = {
       SMALL_BALL: {
         name: "projectile_small_ball_",
-        dir: 1,
-        xSpeed: 10,
-        vSpeed: 0,
-        x: 10,
-        y: 120,
-        width: 20,
-        height: 20,
-        state: States.NORMAL,
-        action: Actions.IDLE,
-        animation: null,
+        body: newPhysicsBody(10, 120, 20, 20, 10, 0),
+        animation: newAnimationData(Actions.IDLE, States.NORMAL),
       },
     };
 
@@ -101,9 +97,7 @@
       {
         name: "player",
         body: newPhysicsBody(160, 50, 24, 40, 3, 0),
-        state: States.NORMAL,
-        action: Actions.IDLE,
-        animation: null,
+        animation: newAnimationData(Actions.IDLE, States.NORMAL),
         lastStepTime: 0,
       },
     ];
@@ -522,17 +516,21 @@
     function playAnimation(character, time) {
       if (character.animation?.action !== character.action || character.animation?.state !== character.state) {
         const newAnim = animations.find((a) => a.action === character.action && a.state === character.state) ?? animations.find((a) => a.action === character.action);
-        const prevAnim = newAnim.action === character.animation?.action && newAnim.frames.length === character.animation?.frames.length ? character.animation : { previousTime: time, frameIndex: 0 };
-        character.animation = {
-          ...prevAnim,
-          ...newAnim,
-        };
+        if (isSameAction(newAnim, character.animation)) {
+          character.animation = newAnimationData(null, character.animation?.state, character.animation?.frameIndex, character.animation?.previousTime, newAnim);
+        } else {
+          character.animation = newAnimationData(null, character.animation?.state, 0, 0, newAnim);
+        }
       }
       if (time - character.animation.previousTime > character.animation.delay) {
         character.animation.previousTime = time;
         if (++character.animation.frameIndex === character.animation.frames.length) character.animation.frameIndex = 0;
       }
       character.animation.currFrame = character.animation.frames[character.animation.frameIndex];
+    }
+
+    function isSameAction(anim1, anim2) {
+      return anim1 && anim2 && anim1.action === anim2.action && anim1.frames.length === anim2.frames.length;
     }
 
     function checkFloor(character) {
