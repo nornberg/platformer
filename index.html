@@ -1,3 +1,8 @@
+<!--
+  Para rodar o arquivo é necessário colocar a pasta em um servidor web,
+  de forma que o script tenha permissão para carregar os arquivos de mídia.
+  Sugestão: http://fenixwebserver.com/
+-->
 <html>
   <head>
     <title>Plataforma</title>
@@ -55,6 +60,26 @@
       SHOOTING: "shooting",
     };
 
+    function newPhysicsBody(x, y, width, height, xSpeed, vSpeed) {
+      return { dir: 1, floored: false, x, y, width, height, xSpeed, vSpeed };
+    }
+
+    const Projectiles = {
+      SMALL_BALL: {
+        name: "projectile_small_ball_",
+        dir: 1,
+        xSpeed: 10,
+        vSpeed: 0,
+        x: 10,
+        y: 120,
+        width: 20,
+        height: 20,
+        state: States.NORMAL,
+        action: Actions.IDLE,
+        animation: null,
+      },
+    };
+
     const sprites_megaman = [];
 
     let canvasScreen;
@@ -75,19 +100,15 @@
     const characters = [
       {
         name: "player",
-        dir: 1,
-        xSpeed: 3,
-        vSpeed: 0,
-        x: 160,
-        y: 50,
-        width: 24,
-        height: 40,
+        body: newPhysicsBody(160, 50, 24, 40, 3, 0),
         state: States.NORMAL,
         action: Actions.IDLE,
         animation: null,
         lastStepTime: 0,
       },
     ];
+
+    const projectiles = [];
 
     const animations = [
       {
@@ -305,25 +326,25 @@
     function update(time) {
       characters.forEach((c) => {
         const floor = checkFloor(c);
-        if (c.floored) {
-          c.vSpeed = 0;
-          c.y = floor.height;
+        if (c.body.floored) {
+          c.body.vSpeed = 0;
+          c.body.y = floor.height;
         } else {
-          c.vSpeed += 0.2;
-          if (c.vSpeed > 5) c.vSpeed = 5;
-          c.y += c.vSpeed;
+          c.body.vSpeed += 0.2;
+          if (c.body.vSpeed > 5) c.body.vSpeed = 5;
+          c.body.y += c.body.vSpeed;
         }
       });
 
       if (input_axis_hor !== 0) {
-        characters[0].dir = input_axis_hor;
-        characters[0].xSpeed += 0.1;
-        if (characters[0].xSpeed > 3) characters[0].xSpeed = 3;
+        characters[0].body.dir = input_axis_hor;
+        characters[0].body.xSpeed += 0.1;
+        if (characters[0].body.xSpeed > 3) characters[0].body.xSpeed = 3;
       } else {
-        characters[0].xSpeed -= 0.3;
-        if (characters[0].xSpeed < 0) characters[0].xSpeed = 0;
+        characters[0].body.xSpeed -= 0.3;
+        if (characters[0].body.xSpeed < 0) characters[0].body.xSpeed = 0;
       }
-      characters[0].x += characters[0].dir * characters[0].xSpeed;
+      characters[0].body.x += characters[0].body.dir * characters[0].body.xSpeed;
 
       if (input_button_extra_1 === 1) {
         characters[0].action = Actions.HIT;
@@ -333,16 +354,16 @@
       }
 
       if (characters[0].action === Actions.HIT) {
-        characters[0].x -= characters[0].dir;
+        characters[0].body.x -= characters[0].body.dir;
         if (time - characters[0].hitTime > 250) {
           characters[0].action = Actions.IDLE;
         }
       } else {
-        if (characters[0].vSpeed < 0) {
+        if (characters[0].body.vSpeed < 0) {
           characters[0].action = Actions.JUMP;
-        } else if (characters[0].vSpeed > 0) {
+        } else if (characters[0].body.vSpeed > 0) {
           characters[0].action = Actions.FALL;
-        } else if (characters[0].xSpeed > 0) {
+        } else if (characters[0].body.xSpeed > 0) {
           characters[0].action = Actions.WALK;
           if (time - characters[0].lastStepTime > 400) {
             characters[0].lastStepTime = time;
@@ -362,10 +383,10 @@
           }
         }
 
-        if (input_button_jump === 1 && characters[0].floored) {
+        if (input_button_jump === 1 && characters[0].body.floored) {
           console.log("JUMP");
-          characters[0].vSpeed = -5;
-          characters[0].y--;
+          characters[0].body.vSpeed = -5;
+          characters[0].body.y--;
           playEffect(audio_sheet, 12, 13);
         }
       }
@@ -386,11 +407,11 @@
 
       characters.forEach((c) => {
         if (c.animation) {
-          showSprite(c.x - SPRITE_SIZE / 2, c.y - SPRITE_SIZE, c.animation.currFrame, c.dir);
+          showSprite(c.body.x - SPRITE_SIZE / 2, c.body.y - SPRITE_SIZE, c.animation.currFrame, c.body.dir);
           ctx.strokeStyle = "rgb(18, 18, 18)";
-          ctx.strokeRect(c.x - c.width / 2, c.y - c.height, c.width, c.height);
+          ctx.strokeRect(c.body.x - c.body.width / 2, c.body.y - c.body.height, c.body.width, c.body.height);
           ctx.fillStyle = "rgb(255, 255, 255)";
-          ctx.fillRect(c.x, c.y, 1, 1);
+          ctx.fillRect(c.body.x, c.body.y, 1, 1);
         }
       });
 
@@ -517,14 +538,14 @@
     function checkFloor(character) {
       const c = character;
       const floors = platforms.filter((p) => {
-        const check = c.x + c.width / 2 > p.start && c.x - c.width / 2 < p.end && c.y >= p.height && c.y <= p.height + 5;
+        const check = c.body.x + c.body.width / 2 > p.start && c.body.x - c.body.width / 2 < p.end && c.body.y >= p.height && c.body.y <= p.height + 5;
         return check;
       });
       if (floors.length === 0) {
-        c.floored = false;
+        c.body.floored = false;
         return null;
       } else {
-        c.floored = true;
+        c.body.floored = true;
         return floors[0];
       }
     }
