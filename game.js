@@ -128,12 +128,14 @@ const characters = [
     name: "enemy_1",
     body: newPhysicsBody(20, 180, 24, 40, 3, 0),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    lastStepTime: 0,
     next: {},
   },
   {
     name: "enemy_2",
     body: newPhysicsBody(270, 120, 24, 40, 3, 0, -1),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    lastStepTime: 0,
     next: {},
   },
 ];
@@ -298,6 +300,10 @@ async function frame(time) {
 }
 
 function update(time) {
+  characters.forEach((c) => {
+    c.next = { action: c.next.action, state: c.next.state };
+  });
+
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const p = projectiles[i];
     p.body.x += p.body.dir * p.body.xSpeed;
@@ -305,6 +311,28 @@ function update(time) {
       console.log("deleting projectile", i, p.body.x);
       projectiles.splice(i, 1);
     }
+  }
+
+  if (input_button_extra_1 === 1) {
+    characters[0].isHit = true;
+    characters[0].hitTime = time;
+    playEffect(audio_sheet, 8.1, 8.5);
+  }
+  if (input_axis_hor !== 0) {
+    characters[0].body.dir = input_axis_hor;
+    characters[0].body.xSpeed += 0.1;
+    if (characters[0].body.xSpeed > 3) characters[0].body.xSpeed = 3;
+  } else {
+    characters[0].body.xSpeed -= 0.3;
+    if (characters[0].body.xSpeed < 0) characters[0].body.xSpeed = 0;
+  }
+  characters[0].next.fire = input_button_fire;
+
+  if (input_button_jump === 1 && characters[0].body.floored) {
+    console.log("JUMP");
+    characters[0].body.vSpeed = -5;
+    characters[0].body.y--;
+    playEffect(audio_sheet, 12, 13);
   }
 
   characters.forEach((c) => {
@@ -317,63 +345,40 @@ function update(time) {
       if (c.body.vSpeed > 5) c.body.vSpeed = 5;
       c.body.y += c.body.vSpeed;
     }
+    c.body.x += c.body.dir * c.body.xSpeed;
+    if (c.isHit) {
+      c.next.action = Actions.HIT;
+      c.next.state = States.NORMAL;
+      c.body.x -= c.body.dir;
+      if (time - c.hitTime > 250) {
+        c.isHit = false;
+        c.next.action = Actions.IDLE;
+      }
+    } else {
+      if (c.body.vSpeed < 0) {
+        c.next.action = Actions.JUMP;
+      } else if (c.body.vSpeed > 0) {
+        c.next.action = Actions.FALL;
+      } else if (c.body.xSpeed > 0) {
+        c.next.action = Actions.WALK;
+        if (time - c.lastStepTime > 400) {
+          c.lastStepTime = time;
+          playEffect(audio_sheet, 6, 6.1);
+        }
+      } else {
+        c.next.action = Actions.IDLE;
+      }
+      if (c.next.fire === 0) {
+        c.next.state = States.NORMAL;
+      } else {
+        c.next.state = States.SHOOTING;
+        if (c.next.fire === 1) {
+          newProjectile(ProjectileTemplates.SMALL_BALL, c.body.x + c.body.dir * 27, c.body.y - 21, c.body.dir, 5);
+          playEffect(audio_sheet, 14, 15);
+        }
+      }
+    }
   });
-
-  if (input_axis_hor !== 0) {
-    characters[0].body.dir = input_axis_hor;
-    characters[0].body.xSpeed += 0.1;
-    if (characters[0].body.xSpeed > 3) characters[0].body.xSpeed = 3;
-  } else {
-    characters[0].body.xSpeed -= 0.3;
-    if (characters[0].body.xSpeed < 0) characters[0].body.xSpeed = 0;
-  }
-  characters[0].body.x += characters[0].body.dir * characters[0].body.xSpeed;
-
-  if (input_button_extra_1 === 1) {
-    characters[0].next.action = Actions.HIT;
-    characters[0].next.state = States.NORMAL;
-    characters[0].hitTime = time;
-    playEffect(audio_sheet, 8.1, 8.5);
-  }
-
-  if (characters[0].next.action === Actions.HIT) {
-    characters[0].body.x -= characters[0].body.dir;
-    if (time - characters[0].hitTime > 250) {
-      characters[0].next.action = Actions.IDLE;
-    }
-  } else {
-    if (characters[0].body.vSpeed < 0) {
-      characters[0].next.action = Actions.JUMP;
-    } else if (characters[0].body.vSpeed > 0) {
-      characters[0].next.action = Actions.FALL;
-    } else if (characters[0].body.xSpeed > 0) {
-      characters[0].next.action = Actions.WALK;
-      if (time - characters[0].lastStepTime > 400) {
-        characters[0].lastStepTime = time;
-        playEffect(audio_sheet, 6, 6.1);
-      }
-    } else {
-      characters[0].next.action = Actions.IDLE;
-    }
-
-    if (input_button_fire === 0) {
-      characters[0].state = States.NORMAL;
-    } else {
-      characters[0].state = States.SHOOTING;
-      if (input_button_fire === 1) {
-        console.log("FIRE");
-        newProjectile(ProjectileTemplates.SMALL_BALL, characters[0].body.x + characters[0].body.dir * 27, characters[0].body.y - 21, characters[0].body.dir, 5);
-        playEffect(audio_sheet, 14, 15);
-      }
-    }
-
-    if (input_button_jump === 1 && characters[0].body.floored) {
-      console.log("JUMP");
-      characters[0].body.vSpeed = -5;
-      characters[0].body.y--;
-      playEffect(audio_sheet, 12, 13);
-    }
-  }
 
   characters.forEach((c) => {
     playAnimation(c, time);
