@@ -37,6 +37,7 @@ const Actions = {
   JUMP: "jump",
   FALL: "fall",
   HIT: "hit",
+  DEATH: "death",
 };
 
 const States = {
@@ -49,6 +50,7 @@ const ProjectileTemplates = {
     name: "projectile_small_ball_",
     body: newPhysicsBody(10, 120, 10, 10, 5, 0),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    power: 1,
   },
 };
 
@@ -82,6 +84,12 @@ const animations = [
     action: Actions.HIT,
     frames: [30, 35],
     delay: 30,
+  },
+  {
+    state: States.NORMAL,
+    action: Actions.DEATH,
+    frames: [36, , 36, , 36, , 36, , 36, , 36],
+    delay: 16,
   },
 
   {
@@ -121,6 +129,8 @@ const characters = [
     name: "player",
     body: newPhysicsBody(180, 50, 24, 40, 0, 0),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    active: true,
+    energy: 3,
     lastStepTime: 0,
     next: {},
   },
@@ -128,6 +138,8 @@ const characters = [
     name: "enemy_1",
     body: newPhysicsBody(20, 180, 24, 40, 1, 0),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    active: true,
+    energy: 3,
     lastStepTime: 0,
     next: {},
   },
@@ -135,6 +147,8 @@ const characters = [
     name: "enemy_2",
     body: newPhysicsBody(270, 120, 24, 40, 1, 0, -1),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    active: true,
+    energy: 3,
     lastStepTime: 0,
     next: {},
   },
@@ -300,6 +314,12 @@ async function frame(time) {
 }
 
 function update(time) {
+  for (let i = characters.length - 1; i >= 0; i--) {
+    if (!characters[i].active) {
+      characters.splice(i, 1);
+    }
+  }
+
   characters.forEach((c) => {
     c.next = { action: c.next.action, state: c.next.state };
   });
@@ -315,6 +335,10 @@ function update(time) {
     if (hitCharacter) {
       hitCharacter.isHit = true;
       hitCharacter.hitTime = time;
+      hitCharacter.energy -= p.power;
+      if (hitCharacter.energy < 0) {
+        hitCharacter.energy = 0;
+      }
       console.log("deleting projectile", i, hitCharacter.name);
       projectiles.splice(i, 1);
     }
@@ -360,12 +384,14 @@ function update(time) {
     }
     c.body.x += c.body.dir * c.body.xSpeed;
     if (c.isHit) {
-      c.next.action = Actions.HIT;
+      c.next.action = c.energy === 0 ? Actions.DEATH : Actions.HIT;
       c.next.state = States.NORMAL;
       c.body.x -= c.body.dir;
       if (time - c.hitTime > 250) {
         c.isHit = false;
-        c.next.action = Actions.IDLE;
+        if (c.energy === 0) {
+          c.active = false;
+        }
       }
     } else {
       if (c.body.vSpeed < 0) {
