@@ -47,7 +47,7 @@ const States = {
 const ProjectileTemplates = {
   SMALL_BALL: {
     name: "projectile_small_ball_",
-    body: newPhysicsBody(10, 120, 10, 10, 10, 0),
+    body: newPhysicsBody(10, 120, 10, 10, 5, 0),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
   },
 };
@@ -147,13 +147,13 @@ function newPhysicsBody(x, y, width, height, xSpeed = 0, vSpeed = 0, dir = 1) {
 }
 
 function newAnimationData(action, state, frameIndex, previousTime, moreAttr) {
-  return { action, state, frameIndex, previousTime, currFrame: 0, ...moreAttr };
+  return { action, state, frameIndex, previousTime, currFrame: 0, playing: true, ...moreAttr };
 }
 
-function newProjectile(template, x, y, dir, xSpeed) {
+function newProjectile(template, x, y, dir) {
   const projectile = {
     ...template,
-    body: { ...template.body, x, y, dir, xSpeed },
+    body: { ...template.body, x, y, dir },
   };
   projectiles.push(projectile);
   return projectile;
@@ -311,6 +311,13 @@ function update(time) {
       console.log("deleting projectile", i, p.body.x);
       projectiles.splice(i, 1);
     }
+    const hitCharacter = characters.find((c) => collision(c.body, p.body));
+    if (hitCharacter) {
+      hitCharacter.isHit = true;
+      hitCharacter.hitTime = time;
+      console.log("deleting projectile", i, hitCharacter.name);
+      projectiles.splice(i, 1);
+    }
   }
 
   if (input_button_extra_1 === 1) {
@@ -379,7 +386,7 @@ function update(time) {
       } else {
         c.next.state = States.SHOOTING;
         if (c.next.fire === 1) {
-          newProjectile(ProjectileTemplates.SMALL_BALL, c.body.x + c.body.dir * 27, c.body.y - 21, c.body.dir, 5);
+          newProjectile(ProjectileTemplates.SMALL_BALL, c.body.x + c.body.dir * 27, c.body.y - 21, c.body.dir);
           playEffect(audio_sheet, 14, 15);
         }
       }
@@ -404,8 +411,9 @@ function draw(time) {
   characters.forEach((c) => {
     if (c.animation) {
       showSprite(c.body.x - SPRITE_SIZE / 2, c.body.y - SPRITE_SIZE, c.animation.currFrame, c.body.dir);
-      ctx.strokeStyle = "rgb(18, 18, 18)";
-      ctx.strokeRect(c.body.x - c.body.width / 2, c.body.y - c.body.height, c.body.width, c.body.height);
+      ctx.strokeStyle = "rgb(50, 0, 0)";
+      const e = envelope(c.body, true);
+      ctx.strokeRect(e.x1, e.y1, e.x2 - e.x1, e.y2 - e.y1);
       ctx.fillStyle = "rgb(255, 255, 255)";
       ctx.fillRect(c.body.x, c.body.y, 1, 1);
     }
@@ -414,8 +422,9 @@ function draw(time) {
   projectiles.forEach((p) => {
     if (p.animation) {
       showSprite(p.body.x - SPRITE_SIZE / 2, p.body.y - SPRITE_SIZE / 2, 37, p.body.dir);
-      ctx.strokeStyle = "rgb(18, 18, 18)";
-      ctx.strokeRect(p.body.x - p.body.width / 2, p.body.y - p.body.height / 2, p.body.width, p.body.height);
+      ctx.strokeStyle = "rgb(50, 0, 0)";
+      const e = envelope(p.body);
+      ctx.strokeRect(e.x1, e.y1, e.x2 - e.x1, e.y2 - e.y1);
       ctx.fillStyle = "rgb(255, 255, 255)";
       ctx.fillRect(p.body.x, p.body.y, 1, 1);
     }
@@ -540,7 +549,10 @@ function playAnimation(character, time) {
   }
   if (time - character.animation.previousTime > character.animation.delay) {
     character.animation.previousTime = time;
-    if (++character.animation.frameIndex === character.animation.frames.length) character.animation.frameIndex = 0;
+    if (++character.animation.frameIndex === character.animation.frames.length) {
+      character.animation.playing = false;
+      character.animation.frameIndex = 0;
+    }
   }
   character.animation.currFrame = character.animation.frames[character.animation.frameIndex];
 }
@@ -562,4 +574,27 @@ function checkFloor(character) {
     c.body.floored = true;
     return floors[0];
   }
+}
+
+function collision(body1, body2) {
+  const e1 = envelope(body1);
+  const e2 = envelope(body2);
+  return e1.x2 > e2.x1 && e1.x1 < e2.x2 && e1.y2 > e2.y1 && e1.y1 < e2.y2;
+}
+
+function envelope(body, base = false) {
+  if (base)
+    return {
+      x1: body.x - body.width / 2,
+      y1: body.y - body.height,
+      x2: body.x + body.width / 2,
+      y2: body.y,
+    };
+  else
+    return {
+      x1: body.x - body.width / 2,
+      y1: body.y - body.height / 2,
+      x2: body.x + body.width / 2,
+      y2: body.y + body.height / 2,
+    };
 }
