@@ -31,22 +31,35 @@
         -webkit-font-smoothing: none;
       }
 
-      #loadingMessage {
-        display: none;
+      .message {
+        text-align: center;
         font-size: 180%;
         color: white;
       }
 
+      .message > small {
+        font-size: 70%;
+        color: gray;
+      }
+
+      #loadingMessage {
+        display: none;
+      }
+
       #startMessage {
-        color: white;
-        font-size: 180%;
+        display: block;
+      }
+
+      #endMessage {
+        display: none;
       }
     </style>
   </head>
 
   <body id="container">
-    <div id="startMessage">clique ou tecle para iniciar</div>
-    <div id="loadingMessage">carregando...</div>
+    <div id="startMessage" class="message">clique ou tecle para iniciar<br /><small>pressione 1 durante o jogo para modo debug</small></div>
+    <div id="loadingMessage" class="message">carregando...</div>
+    <div id="endMessage" class="message">clique ou tecle para recarregar</div>
     <canvas id="screen" width="960" height="720"></canvas>
   </body>
 

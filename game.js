@@ -22,6 +22,9 @@ let input_button_fire = 0;
 let input_button_jump = 0;
 let input_button_extra_1 = 0;
 let trackOffset = null;
+let endTime;
+let animationFrameId;
+let debugView = false;
 
 const SPRITE_SIZE = 56;
 
@@ -38,6 +41,7 @@ const Actions = {
   FALL: "fall",
   HIT: "hit",
   DEATH: "death",
+  WIN: "win",
 };
 
 const States = {
@@ -90,6 +94,12 @@ const animations = [
     action: Actions.DEATH,
     frames: [36, , 36, , 36, , 36, , 36, , 36],
     delay: 16,
+  },
+  {
+    state: States.NORMAL,
+    action: Actions.WIN,
+    frames: [8],
+    delay: 2000,
   },
 
   {
@@ -189,7 +199,7 @@ async function main() {
   console.log("START");
   //playTrack(track_guitar, true);
   //playTrack(track_drums, true);
-  requestAnimationFrame(frame);
+  animationFrameId = requestAnimationFrame(frame);
 }
 
 async function setup() {
@@ -211,6 +221,17 @@ async function setup() {
 
   document.addEventListener("keydown", keyDownHandler, false);
   document.addEventListener("keyup", keyUpHandler, false);
+}
+
+function cleanup() {
+  document.getElementById("screen").style.display = "none";
+  document.getElementById("endMessage").style.display = "unset";
+
+  console.log("WAIT USER ACTION");
+  onkeydown = onclick = () => {
+    onkeydown = onclick = undefined;
+    location.reload();
+  };
 }
 
 async function load() {
@@ -302,14 +323,27 @@ async function frame(time) {
     frameControl.startTime = time;
   }
   const currTime = time - frameControl.startTime;
-  update(currTime);
-  draw(currTime);
-  input(currTime);
-  requestAnimationFrame(frame);
-  frameControl.frameCount++;
-  if (Math.trunc(currTime) % 1000 === 0) {
-    frameControl.fps = frameControl.frameCount;
-    frameControl.frameCount = 0;
+
+  if (input_button_extra_1 === 1) {
+    debugView = !debugView;
+  }
+
+  if (currTime - endTime > 3000) {
+    console.log("END");
+    cancelAnimationFrame(animationFrameId);
+    cleanup();
+  } else {
+    animationFrameId = requestAnimationFrame(frame);
+
+    update(currTime);
+    draw(currTime);
+    input(currTime);
+
+    frameControl.frameCount++;
+    if (Math.trunc(currTime) % 1000 === 0) {
+      frameControl.fps = frameControl.frameCount;
+      frameControl.frameCount = 0;
+    }
   }
 }
 
@@ -344,80 +378,80 @@ function update(time) {
     }
   }
 
-  if (input_button_extra_1 === 1) {
-    characters[0].isHit = true;
-    characters[0].hitTime = time;
-    playEffect(audio_sheet, 8.1, 8.5);
-  }
-  if (input_axis_hor !== 0) {
-    characters[0].body.dir = input_axis_hor;
-    characters[0].body.xSpeed += 0.1;
-    if (characters[0].body.xSpeed > 3) characters[0].body.xSpeed = 3;
+  if (characters.length === 1 && characters[0].name === "player") {
+    characters[0].next.action = Actions.WIN;
+    if (!endTime) endTime = time;
   } else {
-    characters[0].body.xSpeed -= 0.3;
-    if (characters[0].body.xSpeed < 0) characters[0].body.xSpeed = 0;
-  }
-  characters[0].next.fire = input_button_fire;
-
-  if (input_button_jump === 1 && characters[0].body.floored) {
-    console.log("JUMP");
-    characters[0].body.vSpeed = -5;
-    characters[0].body.y--;
-    playEffect(audio_sheet, 12, 13);
-  }
-
-  characters.forEach((c) => {
-    if (c.name !== "player") {
-      if (c.body.floored && (c.body.x < c.body.floor.start || c.body.x > c.body.floor.end)) c.body.dir *= -1;
-    }
-  });
-
-  characters.forEach((c) => {
-    c.body.floor = checkFloor(c);
-    if (c.body.floored) {
-      c.body.vSpeed = 0;
-      c.body.y = c.body.floor.height;
+    if (input_axis_hor !== 0) {
+      characters[0].body.dir = input_axis_hor;
+      characters[0].body.xSpeed += 0.1;
+      if (characters[0].body.xSpeed > 3) characters[0].body.xSpeed = 3;
     } else {
-      c.body.vSpeed += 0.2;
-      if (c.body.vSpeed > 5) c.body.vSpeed = 5;
-      c.body.y += c.body.vSpeed;
+      characters[0].body.xSpeed -= 0.3;
+      if (characters[0].body.xSpeed < 0) characters[0].body.xSpeed = 0;
     }
-    c.body.x += c.body.dir * c.body.xSpeed;
-    if (c.isHit) {
-      c.next.action = c.energy === 0 ? Actions.DEATH : Actions.HIT;
-      c.next.state = States.NORMAL;
-      c.body.x -= c.body.dir;
-      if (time - c.hitTime > 250) {
-        c.isHit = false;
-        if (c.energy === 0) {
-          c.active = false;
-        }
+    characters[0].next.fire = input_button_fire;
+
+    if (input_button_jump === 1 && characters[0].body.floored) {
+      console.log("JUMP");
+      characters[0].body.vSpeed = -5;
+      characters[0].body.y--;
+      playEffect(audio_sheet, 12, 13);
+    }
+
+    characters.forEach((c) => {
+      if (c.name !== "player") {
+        if (c.body.floored && (c.body.x < c.body.floor.start || c.body.x > c.body.floor.end)) c.body.dir *= -1;
       }
-    } else {
-      if (c.body.vSpeed < 0) {
-        c.next.action = Actions.JUMP;
-      } else if (c.body.vSpeed > 0) {
-        c.next.action = Actions.FALL;
-      } else if (c.body.xSpeed > 0) {
-        c.next.action = Actions.WALK;
-        if (time - c.lastStepTime > 400) {
-          c.lastStepTime = time;
-          playEffect(audio_sheet, 6, 6.1);
-        }
+    });
+
+    characters.forEach((c) => {
+      c.body.floor = checkFloor(c);
+      if (c.body.floored) {
+        c.body.vSpeed = 0;
+        c.body.y = c.body.floor.height;
       } else {
-        c.next.action = Actions.IDLE;
+        c.body.vSpeed += 0.2;
+        if (c.body.vSpeed > 5) c.body.vSpeed = 5;
+        c.body.y += c.body.vSpeed;
       }
-      if (c.next.fire === 0) {
+      c.body.x += c.body.dir * c.body.xSpeed;
+      if (c.isHit) {
+        c.next.action = c.energy === 0 ? Actions.DEATH : Actions.HIT;
         c.next.state = States.NORMAL;
+        c.body.x -= c.body.dir;
+        if (time - c.hitTime > 250) {
+          c.isHit = false;
+          if (c.energy === 0) {
+            c.active = false;
+          }
+        }
       } else {
-        c.next.state = States.SHOOTING;
-        if (c.next.fire === 1) {
-          newProjectile(ProjectileTemplates.SMALL_BALL, c.body.x + c.body.dir * 27, c.body.y - 21, c.body.dir);
-          playEffect(audio_sheet, 14, 15);
+        if (c.body.vSpeed < 0) {
+          c.next.action = Actions.JUMP;
+        } else if (c.body.vSpeed > 0) {
+          c.next.action = Actions.FALL;
+        } else if (c.body.xSpeed > 0) {
+          c.next.action = Actions.WALK;
+          if (time - c.lastStepTime > 400) {
+            c.lastStepTime = time;
+            playEffect(audio_sheet, 6, 6.1);
+          }
+        } else {
+          c.next.action = Actions.IDLE;
+        }
+        if (c.next.fire === 0) {
+          c.next.state = States.NORMAL;
+        } else {
+          c.next.state = States.SHOOTING;
+          if (c.next.fire === 1) {
+            newProjectile(ProjectileTemplates.SMALL_BALL, c.body.x + c.body.dir * 27, c.body.y - 21, c.body.dir);
+            playEffect(audio_sheet, 14, 15);
+          }
         }
       }
-    }
-  });
+    });
+  }
 
   characters.forEach((c) => {
     playAnimation(c, time);
@@ -425,8 +459,6 @@ function update(time) {
 }
 
 function draw(time) {
-  //ctx.fillStyle = "rgb(50, 50, 50)";
-  //ctx.fillRect(0, 0, 320, 240);
   renderer.clear(ctx);
 
   ctx.fillStyle = "rgb(128, 128, 128)";
@@ -437,37 +469,43 @@ function draw(time) {
   characters.forEach((c) => {
     if (c.animation) {
       showSprite(c.body.x - SPRITE_SIZE / 2, c.body.y - SPRITE_SIZE, c.animation.currFrame, c.body.dir);
-      ctx.strokeStyle = "rgb(50, 0, 0)";
-      const e = envelope(c.body, true);
-      ctx.strokeRect(e.x1, e.y1, e.x2 - e.x1, e.y2 - e.y1);
-      ctx.fillStyle = "rgb(255, 255, 255)";
-      ctx.fillRect(c.body.x, c.body.y, 1, 1);
+      if (debugView) {
+        ctx.strokeStyle = "rgb(50, 0, 0)";
+        const e = envelope(c.body, true);
+        ctx.strokeRect(e.x1, e.y1, e.x2 - e.x1, e.y2 - e.y1);
+        ctx.fillStyle = "rgb(255, 255, 255)";
+        ctx.fillRect(c.body.x, c.body.y, 1, 1);
+      }
     }
   });
 
   projectiles.forEach((p) => {
     if (p.animation) {
       showSprite(p.body.x - SPRITE_SIZE / 2, p.body.y - SPRITE_SIZE / 2, 37, p.body.dir);
-      ctx.strokeStyle = "rgb(50, 0, 0)";
-      const e = envelope(p.body);
-      ctx.strokeRect(e.x1, e.y1, e.x2 - e.x1, e.y2 - e.y1);
-      ctx.fillStyle = "rgb(255, 255, 255)";
-      ctx.fillRect(p.body.x, p.body.y, 1, 1);
+      if (debugView) {
+        ctx.strokeStyle = "rgb(50, 0, 0)";
+        const e = envelope(p.body);
+        ctx.strokeRect(e.x1, e.y1, e.x2 - e.x1, e.y2 - e.y1);
+        ctx.fillStyle = "rgb(255, 255, 255)";
+        ctx.fillRect(p.body.x, p.body.y, 1, 1);
+      }
     }
   });
 
-  ctx.fillStyle = "rgb(250, 250, 250)";
-  ctx.font = "16px sans-serif";
-  ctx.textBaseline = "top";
-  ctx.textAlign = "left";
-  ctx.fillText((time / 1000).toFixed(1) + " s", 0, 0);
-  ctx.textAlign = "right";
-  ctx.fillText(frameControl.fps + " fps", 320, 0);
-  ctx.textAlign = "center";
-  ctx.fillStyle = input_button_fire ? "rgb(255, 28, 28)" : "rgb(250, 250, 250)";
-  ctx.fillText("fire", 160 + 20, 0);
-  ctx.fillStyle = input_button_jump ? "rgb(255, 28, 28)" : "rgb(250, 250, 250)";
-  ctx.fillText("jump", 160 - 20, 0);
+  if (debugView) {
+    ctx.fillStyle = "rgb(250, 250, 250)";
+    ctx.font = "16px sans-serif";
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+    ctx.fillText((time / 1000).toFixed(1) + " s", 0, 0);
+    ctx.textAlign = "right";
+    ctx.fillText(frameControl.fps + " fps", 320, 0);
+    ctx.textAlign = "center";
+    ctx.fillStyle = input_button_fire ? "rgb(255, 28, 28)" : "rgb(250, 250, 250)";
+    ctx.fillText("fire", 160 + 20, 0);
+    ctx.fillStyle = input_button_jump ? "rgb(255, 28, 28)" : "rgb(250, 250, 250)";
+    ctx.fillText("jump", 160 - 20, 0);
+  }
 
   ctxScreen.drawImage(offscreenCanvas.transferToImageBitmap(), 0, 0);
 }
@@ -515,7 +553,7 @@ function keyDownHandler(e) {
       case "KeyN":
         if (!input_button_jump) input_button_jump = 1;
         return;
-      case "KeyQ":
+      case "Digit1":
         if (!input_button_extra_1) input_button_extra_1 = 1;
         return;
       default:
@@ -551,7 +589,7 @@ function keyUpHandler(e) {
       case "KeyN":
         input_button_jump = 0;
         return;
-      case "KeyQ":
+      case "Digit1":
         input_button_extra_1 = 0;
         return;
       default:
