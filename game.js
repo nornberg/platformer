@@ -119,16 +119,29 @@ const platforms = [
 const characters = [
   {
     name: "player",
-    body: newPhysicsBody(160, 50, 24, 40, 3, 0),
+    body: newPhysicsBody(180, 50, 24, 40, 0, 0),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
     lastStepTime: 0,
+    next: {},
+  },
+  {
+    name: "enemy_1",
+    body: newPhysicsBody(20, 180, 24, 40, 3, 0),
+    animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    next: {},
+  },
+  {
+    name: "enemy_2",
+    body: newPhysicsBody(270, 120, 24, 40, 3, 0, -1),
+    animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    next: {},
   },
 ];
 
 const projectiles = [];
 
-function newPhysicsBody(x, y, width, height, xSpeed, vSpeed) {
-  return { dir: 1, floored: false, x, y, width, height, xSpeed, vSpeed };
+function newPhysicsBody(x, y, width, height, xSpeed = 0, vSpeed = 0, dir = 1) {
+  return { dir, floored: false, x, y, width, height, xSpeed, vSpeed };
 }
 
 function newAnimationData(action, state, frameIndex, previousTime, moreAttr) {
@@ -317,30 +330,30 @@ function update(time) {
   characters[0].body.x += characters[0].body.dir * characters[0].body.xSpeed;
 
   if (input_button_extra_1 === 1) {
-    characters[0].action = Actions.HIT;
-    characters[0].state = States.NORMAL;
+    characters[0].next.action = Actions.HIT;
+    characters[0].next.state = States.NORMAL;
     characters[0].hitTime = time;
     playEffect(audio_sheet, 8.1, 8.5);
   }
 
-  if (characters[0].action === Actions.HIT) {
+  if (characters[0].next.action === Actions.HIT) {
     characters[0].body.x -= characters[0].body.dir;
     if (time - characters[0].hitTime > 250) {
-      characters[0].action = Actions.IDLE;
+      characters[0].next.action = Actions.IDLE;
     }
   } else {
     if (characters[0].body.vSpeed < 0) {
-      characters[0].action = Actions.JUMP;
+      characters[0].next.action = Actions.JUMP;
     } else if (characters[0].body.vSpeed > 0) {
-      characters[0].action = Actions.FALL;
+      characters[0].next.action = Actions.FALL;
     } else if (characters[0].body.xSpeed > 0) {
-      characters[0].action = Actions.WALK;
+      characters[0].next.action = Actions.WALK;
       if (time - characters[0].lastStepTime > 400) {
         characters[0].lastStepTime = time;
         playEffect(audio_sheet, 6, 6.1);
       }
     } else {
-      characters[0].action = Actions.IDLE;
+      characters[0].next.action = Actions.IDLE;
     }
 
     if (input_button_fire === 0) {
@@ -502,12 +515,16 @@ function keyUpHandler(e) {
 }
 
 function playAnimation(character, time) {
-  if (character.animation?.action !== character.action || character.animation?.state !== character.state) {
-    const newAnim = animations.find((a) => a.action === character.action && a.state === character.state) ?? animations.find((a) => a.action === character.action);
+  if (character.animation.action !== character.next.action || character.animation.state !== character.next.state) {
+    if (!character.next.action) {
+      character.next.action = character.animation.action;
+      character.next.state = character.animation.state;
+    }
+    const newAnim = animations.find((a) => a.action === character.next.action && a.state === character.next.state) ?? animations.find((a) => a.action === character.next.action);
     if (isSameAction(newAnim, character.animation)) {
-      character.animation = newAnimationData(null, character.animation?.state, character.animation?.frameIndex, character.animation?.previousTime, newAnim);
+      character.animation = newAnimationData(null, character.animation.state, character.animation.frameIndex, character.animation.previousTime, newAnim);
     } else {
-      character.animation = newAnimationData(null, character.animation?.state, 0, 0, newAnim);
+      character.animation = newAnimationData(null, character.animation.state, 0, 0, newAnim);
     }
   }
   if (time - character.animation.previousTime > character.animation.delay) {
@@ -518,7 +535,7 @@ function playAnimation(character, time) {
 }
 
 function isSameAction(anim1, anim2) {
-  return anim1 && anim2 && anim1.action === anim2.action && anim1.frames.length === anim2.frames.length;
+  return anim1 && anim2 && anim1.action === anim2.action && anim1.frames?.length === anim2.frames?.length;
 }
 
 function checkFloor(character) {
