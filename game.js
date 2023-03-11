@@ -126,14 +126,14 @@ const characters = [
   },
   {
     name: "enemy_1",
-    body: newPhysicsBody(20, 180, 24, 40, 3, 0),
+    body: newPhysicsBody(20, 180, 24, 40, 1, 0),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
     lastStepTime: 0,
     next: {},
   },
   {
     name: "enemy_2",
-    body: newPhysicsBody(270, 120, 24, 40, 3, 0, -1),
+    body: newPhysicsBody(270, 120, 24, 40, 1, 0, -1),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
     lastStepTime: 0,
     next: {},
@@ -336,10 +336,16 @@ function update(time) {
   }
 
   characters.forEach((c) => {
-    const floor = checkFloor(c);
+    if (c.name !== "player") {
+      if (c.body.floored && (c.body.x < c.body.floor.start || c.body.x > c.body.floor.end)) c.body.dir *= -1;
+    }
+  });
+
+  characters.forEach((c) => {
+    c.body.floor = checkFloor(c);
     if (c.body.floored) {
       c.body.vSpeed = 0;
-      c.body.y = floor.height;
+      c.body.y = c.body.floor.height;
     } else {
       c.body.vSpeed += 0.2;
       if (c.body.vSpeed > 5) c.body.vSpeed = 5;
