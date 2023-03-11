@@ -48,6 +48,7 @@
 
   <script>
     const SPRITE_SIZE = 56;
+
     const Actions = {
       IDLE: "idle",
       WALK: "walk",
@@ -55,6 +56,7 @@
       FALL: "fall",
       HIT: "hit",
     };
+
     const States = {
       NORMAL: "normal",
       SHOOTING: "shooting",
@@ -68,10 +70,19 @@
       return { action, state, frameIndex, previousTime, currFrame: 0, ...moreAttr };
     }
 
-    const Projectiles = {
+    function newProjectile(template, x, y, dir, xSpeed) {
+      const projectile = {
+        ...template,
+        body: { ...template.body, x, y, dir, xSpeed },
+      };
+      projectiles.push(projectile);
+      return projectile;
+    }
+
+    const ProjectileTemplates = {
       SMALL_BALL: {
         name: "projectile_small_ball_",
-        body: newPhysicsBody(10, 120, 20, 20, 10, 0),
+        body: newPhysicsBody(10, 120, 10, 10, 10, 0),
         animation: newAnimationData(Actions.IDLE, States.NORMAL),
       },
     };
@@ -318,6 +329,15 @@
     }
 
     function update(time) {
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        p.body.x += p.body.dir * p.body.xSpeed;
+        if (p.body.x < 0 || p.body.x > 320) {
+          console.log("deleting projectile", i, p.body.x);
+          projectiles.splice(i, 1);
+        }
+      }
+
       characters.forEach((c) => {
         const floor = checkFloor(c);
         if (c.body.floored) {
@@ -373,6 +393,7 @@
           characters[0].state = States.SHOOTING;
           if (input_button_fire === 1) {
             console.log("FIRE");
+            newProjectile(ProjectileTemplates.SMALL_BALL, characters[0].body.x + characters[0].body.dir * 27, characters[0].body.y - 21, characters[0].body.dir, 5);
             playEffect(audio_sheet, 14, 15);
           }
         }
@@ -406,6 +427,16 @@
           ctx.strokeRect(c.body.x - c.body.width / 2, c.body.y - c.body.height, c.body.width, c.body.height);
           ctx.fillStyle = "rgb(255, 255, 255)";
           ctx.fillRect(c.body.x, c.body.y, 1, 1);
+        }
+      });
+
+      projectiles.forEach((p) => {
+        if (p.animation) {
+          showSprite(p.body.x - SPRITE_SIZE / 2, p.body.y - SPRITE_SIZE / 2, 37, p.body.dir);
+          ctx.strokeStyle = "rgb(18, 18, 18)";
+          ctx.strokeRect(p.body.x - p.body.width / 2, p.body.y - p.body.height / 2, p.body.width, p.body.height);
+          ctx.fillStyle = "rgb(255, 255, 255)";
+          ctx.fillRect(p.body.x, p.body.y, 1, 1);
         }
       });
 
