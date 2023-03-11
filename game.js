@@ -1,48 +1,12 @@
 "use strict";
 
+console.log("WAIT USER ACTION");
+onkeydown = onclick = () => {
+  onkeydown = onclick = undefined;
+  main();
+};
+
 let renderer;
-const SPRITE_SIZE = 56;
-
-const Actions = {
-  IDLE: "idle",
-  WALK: "walk",
-  JUMP: "jump",
-  FALL: "fall",
-  HIT: "hit",
-};
-
-const States = {
-  NORMAL: "normal",
-  SHOOTING: "shooting",
-};
-
-function newPhysicsBody(x, y, width, height, xSpeed, vSpeed) {
-  return { dir: 1, floored: false, x, y, width, height, xSpeed, vSpeed };
-}
-
-function newAnimationData(action, state, frameIndex, previousTime, moreAttr) {
-  return { action, state, frameIndex, previousTime, currFrame: 0, ...moreAttr };
-}
-
-function newProjectile(template, x, y, dir, xSpeed) {
-  const projectile = {
-    ...template,
-    body: { ...template.body, x, y, dir, xSpeed },
-  };
-  projectiles.push(projectile);
-  return projectile;
-}
-
-const ProjectileTemplates = {
-  SMALL_BALL: {
-    name: "projectile_small_ball_",
-    body: newPhysicsBody(10, 120, 10, 10, 10, 0),
-    animation: newAnimationData(Actions.IDLE, States.NORMAL),
-  },
-};
-
-const sprites_megaman = [];
-
 let canvasScreen;
 let offscreenCanvas;
 let ctxScreen;
@@ -57,17 +21,36 @@ let input_axis_ver = 0;
 let input_button_fire = 0;
 let input_button_jump = 0;
 let input_button_extra_1 = 0;
+let trackOffset = null;
 
-const characters = [
-  {
-    name: "player",
-    body: newPhysicsBody(160, 50, 24, 40, 3, 0),
+const SPRITE_SIZE = 56;
+
+const frameControl = {
+  startTime: undefined,
+  fps: 0,
+  frameCount: 0,
+};
+
+const Actions = {
+  IDLE: "idle",
+  WALK: "walk",
+  JUMP: "jump",
+  FALL: "fall",
+  HIT: "hit",
+};
+
+const States = {
+  NORMAL: "normal",
+  SHOOTING: "shooting",
+};
+
+const ProjectileTemplates = {
+  SMALL_BALL: {
+    name: "projectile_small_ball_",
+    body: newPhysicsBody(10, 120, 10, 10, 10, 0),
     animation: newAnimationData(Actions.IDLE, States.NORMAL),
-    lastStepTime: 0,
   },
-];
-
-const projectiles = [];
+};
 
 const animations = [
   {
@@ -133,11 +116,33 @@ const platforms = [
   { start: 250, end: 320, height: 120 },
 ];
 
-console.log("WAIT USER ACTION");
-onkeydown = onclick = () => {
-  onkeydown = onclick = undefined;
-  main();
-};
+const characters = [
+  {
+    name: "player",
+    body: newPhysicsBody(160, 50, 24, 40, 3, 0),
+    animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    lastStepTime: 0,
+  },
+];
+
+const projectiles = [];
+
+function newPhysicsBody(x, y, width, height, xSpeed, vSpeed) {
+  return { dir: 1, floored: false, x, y, width, height, xSpeed, vSpeed };
+}
+
+function newAnimationData(action, state, frameIndex, previousTime, moreAttr) {
+  return { action, state, frameIndex, previousTime, currFrame: 0, ...moreAttr };
+}
+
+function newProjectile(template, x, y, dir, xSpeed) {
+  const projectile = {
+    ...template,
+    body: { ...template.body, x, y, dir, xSpeed },
+  };
+  projectiles.push(projectile);
+  return projectile;
+}
 
 async function main() {
   document.getElementById("startMessage").style.display = "none";
@@ -238,7 +243,6 @@ function showSprite(x, y, idx, dir) {
   ctx.restore();
 }
 
-let offset = null;
 function playTrack(trackSource, loop) {
   console.log("play track ", trackSource.name);
 
@@ -249,11 +253,11 @@ function playTrack(trackSource, loop) {
 
   trackSource.loop = loop;
   trackSource.played = true;
-  if (offset === null) {
+  if (trackOffset === null) {
     trackSource.start();
-    offset = audioCtx.currentTime;
+    trackOffset = audioCtx.currentTime;
   } else {
-    trackSource.start(0, audioCtx.currentTime - offset);
+    trackSource.start(0, audioCtx.currentTime - trackOffset);
   }
 }
 
@@ -264,22 +268,19 @@ function playEffect(audioBuffer, tStart, tEnd) {
   trackSource.stop(audioCtx.currentTime + tEnd - tStart);
 }
 
-let startTime;
-let fps = 0;
-let frameCount = 0;
 async function frame(time) {
-  if (!startTime) {
-    startTime = time;
+  if (!frameControl.startTime) {
+    frameControl.startTime = time;
   }
-  const currTime = time - startTime;
+  const currTime = time - frameControl.startTime;
   update(currTime);
   draw(currTime);
   input(currTime);
   requestAnimationFrame(frame);
-  frameCount++;
+  frameControl.frameCount++;
   if (Math.trunc(currTime) % 1000 === 0) {
-    fps = frameCount;
-    frameCount = 0;
+    frameControl.fps = frameControl.frameCount;
+    frameControl.frameCount = 0;
   }
 }
 
@@ -402,7 +403,7 @@ function draw(time) {
   ctx.textAlign = "left";
   ctx.fillText((time / 1000).toFixed(1) + " s", 0, 0);
   ctx.textAlign = "right";
-  ctx.fillText(fps + " fps", 320, 0);
+  ctx.fillText(frameControl.fps + " fps", 320, 0);
   ctx.textAlign = "center";
   ctx.fillStyle = input_button_fire ? "rgb(255, 28, 28)" : "rgb(250, 250, 250)";
   ctx.fillText("fire", 160 + 20, 0);
