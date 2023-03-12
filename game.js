@@ -58,6 +58,12 @@ const ProjectileTemplates = {
   },
 };
 
+const AudioEffects = {
+  STEP: { start: 6, end: 6.1 },
+  JUMP: { start: 12, end: 13 },
+  FIRE: { start: 14, end: 15 },
+};
+
 const animations = [
   {
     state: States.NORMAL,
@@ -68,14 +74,16 @@ const animations = [
   {
     state: States.NORMAL,
     action: Actions.WALK,
-    frames: [10, 11, 12, 13, 14, 15],
+    frames: [{ frame: 10, audioEffect: AudioEffects.STEP }, 11, 12, { frame: 13, audioEffect: AudioEffects.STEP }, 14, 15],
     delay: 120,
   },
   {
     state: States.NORMAL,
     action: Actions.JUMP,
-    frames: [16, 17, 17, 17, 17, 17, 17],
-    delay: 100,
+    frames: [
+      { frame: 16, delay: 100, audioEffect: AudioEffects.JUMP },
+      { frame: 17, delay: 1000 },
+    ],
   },
   {
     state: States.NORMAL,
@@ -111,13 +119,13 @@ const animations = [
   {
     state: States.SHOOTING,
     action: Actions.WALK,
-    frames: [20, 21, 22, 23, 24, 25],
+    frames: [{ frame: 20, audioEffect: AudioEffects.STEP }, 21, 22, { frame: 23, audioEffect: AudioEffects.STEP }, 24, 25],
     delay: 120,
   },
   {
     state: States.SHOOTING,
     action: Actions.JUMP,
-    frames: [26, 27, 27, 27, 27, 27, 27],
+    frames: [{ frame: 26, audioEffect: AudioEffects.JUMP }, 27, 27, 27, 27, 27, 27],
     delay: 100,
   },
   {
@@ -398,7 +406,6 @@ function update(time) {
       console.log("JUMP");
       characters[0].body.vSpeed = -5;
       characters[0].body.y--;
-      playEffect(audio_sheet, 12, 13);
     }
 
     characters.forEach((c) => {
@@ -435,10 +442,6 @@ function update(time) {
           c.next.action = Actions.FALL;
         } else if (c.body.xSpeed > 0) {
           c.next.action = Actions.WALK;
-          if (time - c.lastStepTime > 400) {
-            c.lastStepTime = time;
-            playEffect(audio_sheet, 6, 6.1);
-          }
         } else {
           c.next.action = Actions.IDLE;
         }
@@ -448,7 +451,6 @@ function update(time) {
           c.next.state = States.SHOOTING;
           if (c.next.fire === 1) {
             newProjectile(ProjectileTemplates.SMALL_BALL, c.body.x + c.body.dir * 27, c.body.y - 21, c.body.dir);
-            playEffect(audio_sheet, 14, 15);
           }
         }
       }
@@ -471,6 +473,10 @@ function draw(time) {
   characters.forEach((c) => {
     if (c.animation) {
       showSprite(c.body.x - SPRITE_SIZE / 2, c.body.y - SPRITE_SIZE, c.animation.currFrame, c.body.dir);
+      if (c.animation.currAudioEffect) {
+        playEffect(audio_sheet, c.animation.currAudioEffect.start, c.animation.currAudioEffect.end);
+        c.animation.currAudioEffect = null;
+      }
       if (debugView) {
         ctx.strokeStyle = "rgb(50, 0, 0)";
         const e = envelope(c.body, true);
@@ -613,14 +619,24 @@ function playAnimation(character, time) {
       character.animation = newAnimationData(null, character.animation.state, 0, 0, newAnim);
     }
   }
-  if (time - character.animation.previousTime > character.animation.delay) {
+  if (time - character.animation.previousTime > character.animation.currDelay) {
     character.animation.previousTime = time;
     if (++character.animation.frameIndex === character.animation.frames.length) {
       character.animation.playing = false;
       character.animation.frameIndex = 0;
     }
   }
-  character.animation.currFrame = character.animation.frames[character.animation.frameIndex];
+  const frameObj = character.animation.frames[character.animation.frameIndex];
+  if (frameObj !== null && typeof frameObj === "object") {
+    if (character.animation.currFrame !== frameObj.frame) {
+      character.animation.currAudioEffect = frameObj.audioEffect;
+    }
+    character.animation.currFrame = frameObj.frame;
+    character.animation.currDelay = frameObj.delay ?? character.animation.delay;
+  } else {
+    character.animation.currFrame = frameObj;
+    character.animation.currDelay = character.animation.delay;
+  }
 }
 
 function isSameAction(anim1, anim2) {
