@@ -2,7 +2,7 @@
   Para rodar o arquivo é necessário colocar a pasta em um servidor web,
   de forma que o script tenha permissão para carregar os arquivos de mídia.
   Sugestão: http://fenixwebserver.com/
-  
+
 -->
 <html>
   <head>
@@ -38,9 +38,11 @@
         color: white;
       }
 
-      .message > small {
+      .subMessage {
         font-size: 70%;
         color: gray;
+        margin-top: 70px;
+        text-align: left;
       }
 
       #loadingMessage {
@@ -58,7 +60,15 @@
   </head>
 
   <body id="container">
-    <div id="startMessage" class="message">clique ou tecle para iniciar<br /><small>pressione 1 durante o jogo para modo debug</small></div>
+    <div id="startMessage" class="message">
+      clique ou tecle para iniciar
+      <div class="subMessage">
+        ASDF ou setas - movimento<br />
+        N - pulo<br />
+        M - tiro<br />
+        1 - modo debug
+      </div>
+    </div>
     <div id="loadingMessage" class="message">carregando...</div>
     <div id="endMessage" class="message">clique ou tecle para recarregar</div>
     <canvas id="screen" width="960" height="720"></canvas>
