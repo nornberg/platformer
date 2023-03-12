@@ -195,6 +195,7 @@ async function main() {
 
   document.getElementById("loadingMessage").style.display = "none";
   document.getElementById("screen").style.display = "unset";
+  document.getElementById("playMessage").style.display = "unset";
 
   console.log("START");
   //playTrack(track_guitar, true);
@@ -225,6 +226,7 @@ async function setup() {
 
 function cleanup() {
   document.getElementById("screen").style.display = "none";
+  document.getElementById("playMessage").style.display = "none";
   document.getElementById("endMessage").style.display = "unset";
 
   console.log("WAIT USER ACTION");

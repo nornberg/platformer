@@ -21,6 +21,7 @@
         height: 100%;
         background-color: black;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
         -webkit-font-smoothing: none;
@@ -36,13 +37,14 @@
         text-align: center;
         font-size: 180%;
         color: white;
+        margin-bottom: 60px;
       }
 
       .subMessage {
         font-size: 70%;
         color: gray;
-        margin-top: 70px;
         text-align: left;
+        margin-top: 10px;
       }
 
       #loadingMessage {
@@ -54,6 +56,10 @@
       }
 
       #endMessage {
+        display: none;
+      }
+
+      #playMessage {
         display: none;
       }
     </style>
@@ -72,6 +78,7 @@
     <div id="loadingMessage" class="message">carregando...</div>
     <div id="endMessage" class="message">clique ou tecle para recarregar</div>
     <canvas id="screen" width="960" height="720"></canvas>
+    <div id="playMessage" class="subMessage">ASDF | N | M | 1</div>
   </body>
 
   <script src="game.js"></script>
