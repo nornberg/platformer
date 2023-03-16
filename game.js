@@ -49,22 +49,40 @@ const States = {
   SHOOTING: "shooting",
 };
 
-const ProjectileTemplates = {
-  SMALL_BALL: {
-    name: "projectile_small_ball_",
-    body: newPhysicsBody(10, 120, 10, 10, 5, 0),
-    animation: newAnimationData(Actions.IDLE, States.NORMAL),
-    power: 1,
-  },
-};
-
 const AudioEffects = {
   STEP: { start: 6, end: 6.1 },
   JUMP: { start: 12, end: 13 },
   FIRE: { start: 14, end: 15 },
 };
 
-const animations = [
+const ProjectileAnimations = {
+  SMALL_BALL: {
+    FIRED: {
+      frames: [{ frame: 61, audioEffect: AudioEffects.FIRE }, 60],
+      delay: 50,
+    },
+    GOING: {
+      frames: [37, 38],
+      delay: 100,
+    },
+    HIT: {
+      frames: [60, 61, 62, 63, 64, 65, 66],
+      delay: 20,
+    },
+  },
+};
+
+const ProjectileTemplates = {
+  SMALL_BALL: {
+    name: "projectile_small_ball_",
+    body: newPhysicsBody(10, 120, 10, 10, 5, 0),
+    animation: newAnimationData(Actions.IDLE, States.NORMAL, 0, 0, ProjectileAnimations.SMALL_BALL.FIRED),
+    power: 1,
+    next: {},
+  },
+};
+
+const characterAnimations = [
   {
     state: States.NORMAL,
     action: Actions.IDLE,
@@ -375,6 +393,9 @@ function update(time) {
       console.log("deleting projectile", i, p.body.x);
       projectiles.splice(i, 1);
     }
+    if (p.animation.action === Actions.IDLE && !p.animation.isPlaying) {
+      p.next.action = Actions.WALK;
+    }
     const hitCharacter = characters.find((c) => collision(c.body, p.body));
     if (hitCharacter) {
       hitCharacter.isHit = true;
@@ -460,6 +481,10 @@ function update(time) {
   characters.forEach((c) => {
     playAnimation(c, time);
   });
+
+  //projectiles.forEach((p) => {
+  //  playAnimation(p, time);
+  //});
 }
 
 function draw(time) {
@@ -489,7 +514,12 @@ function draw(time) {
 
   projectiles.forEach((p) => {
     if (p.animation) {
-      showSprite(p.body.x - SPRITE_SIZE / 2, p.body.y - SPRITE_SIZE / 2, 37, p.body.dir);
+      showSprite(p.body.x - SPRITE_SIZE / 2, p.body.y - SPRITE_SIZE, p.animation.currFrame, p.body.dir);
+      if (p.animation.currAudioEffect) {
+        playEffect(audio_sheet, p.animation.currAudioEffect.start, p.animation.currAudioEffect.end);
+        p.animation.currAudioEffect = null;
+      }
+      //showSprite(p.body.x - SPRITE_SIZE / 2, p.body.y - SPRITE_SIZE / 2, 37, p.body.dir);
       if (debugView) {
         ctx.strokeStyle = "rgb(50, 0, 0)";
         const e = envelope(p.body);
@@ -612,7 +642,7 @@ function playAnimation(character, time) {
       character.next.action = character.animation.action;
       character.next.state = character.animation.state;
     }
-    const newAnim = animations.find((a) => a.action === character.next.action && a.state === character.next.state) ?? animations.find((a) => a.action === character.next.action);
+    const newAnim = characterAnimations.find((a) => a.action === character.next.action && a.state === character.next.state) ?? characterAnimations.find((a) => a.action === character.next.action);
     if (isSameAction(newAnim, character.animation)) {
       character.animation = newAnimationData(null, character.animation.state, character.animation.frameIndex, character.animation.previousTime, newAnim);
     } else {
