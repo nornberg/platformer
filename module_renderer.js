@@ -37,6 +37,13 @@ export function newRenderableText(posX, posY, text, align, style, font) {
   return r;
 }
 
+export function removeRenderable(renderable) {
+  if (renderable) {
+    const i = renderables.indexOf(renderable);
+    renderables.splice(i, 1);
+  }
+}
+
 export async function init(canvasElemId, width, height) {
   SCR_W = width;
   SCR_H = height;

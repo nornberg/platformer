@@ -253,7 +253,10 @@ async function setup() {
   characters.forEach((c) => {
     c.renderable = mRenderer.newRenderableSprite(0, 0, c.body.width, c.body.height, 0.5, 1, false, false, spriteSheet, 0);
   });
-  updateRenderables();
+  platforms.forEach((p) => {
+    p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray");
+  });
+  updateModules();
 }
 
 function cleanup() {
@@ -350,6 +353,7 @@ async function frame(time) {
 function update(time) {
   for (let i = characters.length - 1; i >= 0; i--) {
     if (!characters[i].active) {
+      releaseModules(characters[i]);
       characters.splice(i, 1);
     }
   }
@@ -363,6 +367,7 @@ function update(time) {
     p.body.x += p.body.dir * p.body.xSpeed;
     if (p.body.x < 0 || p.body.x > 320) {
       console.log("deleting projectile", i, p.body.x);
+      releaseModules(p);
       projectiles.splice(i, 1);
     }
     if (p.animation.action === Actions.IDLE && !p.animation.isPlaying) {
@@ -376,7 +381,8 @@ function update(time) {
       if (hitCharacter.energy < 0) {
         hitCharacter.energy = 0;
       }
-      console.log("deleting projectile", i, hitCharacter.name);
+      console.log("deleting character", i, hitCharacter.name);
+      releaseModules(p);
       projectiles.splice(i, 1);
     }
   }
@@ -454,16 +460,20 @@ function update(time) {
     playAnimation(c, time);
   });
 
-  updateRenderables();
+  updateModules();
 }
 
-function updateRenderables() {
+function updateModules() {
   characters.forEach((c) => {
     c.renderable.posX = c.body.x;
     c.renderable.posY = c.body.y;
     c.renderable.flipX = c.body.dir < 0;
     c.renderable.index = c.animation.currFrame;
   });
+}
+
+function releaseModules(obj) {
+  mRenderer.removeRenderable(obj.renderable);
 }
 
 function draw(time) {
