@@ -6,13 +6,12 @@ onkeydown = onclick = () => {
   main();
 };
 
-let renderer;
-let canvasScreen;
-let offscreenCanvas;
-let ctxScreen;
-let ctx;
+let mRenderer;
+let mAudio;
+let mPhysics;
+
 let audioCtx;
-let sprite_sheet;
+let spriteSheet;
 let audio_sheet;
 let track_guitar;
 let track_drums;
@@ -24,9 +23,6 @@ let input_button_extra_1 = 0;
 let trackOffset = null;
 let endTime;
 let animationFrameId;
-let debugView = false;
-
-const SPRITE_SIZE = 56;
 
 const frameControl = {
   startTime: undefined,
@@ -213,11 +209,11 @@ async function main() {
   document.getElementById("startMessage").style.display = "none";
   document.getElementById("loadingMessage").style.display = "unset";
 
-  console.log("SETUP");
-  await setup();
-
   console.log("LOAD");
   await load();
+
+  console.log("SETUP");
+  await setup();
 
   document.getElementById("loadingMessage").style.display = "none";
   document.getElementById("screen").style.display = "unset";
@@ -229,25 +225,35 @@ async function main() {
   animationFrameId = requestAnimationFrame(frame);
 }
 
-async function setup() {
-  canvasScreen = document.getElementById("screen");
-  ctxScreen = canvasScreen.getContext("2d");
-
-  offscreenCanvas = new OffscreenCanvas(320, 240);
-  ctx = offscreenCanvas.getContext("2d");
-
-  const kx = canvasScreen.width / offscreenCanvas.width;
-  const ky = canvasScreen.height / offscreenCanvas.height;
-  ctxScreen.scale(kx, ky);
-  ctxScreen.imageSmoothingEnabled = false;
-  ctxScreen.mozImageSmoothingEnabled = false;
-  ctxScreen.webkitImageSmoothingEnabled = false;
-  ctxScreen.msImageSmoothingEnabled = false;
-
+async function load() {
+  // TODO fazer loadAudio não depender do audio estar inicializado.
   audioCtx = new AudioContext();
+
+  mRenderer = await import("/module_renderer.js");
+  mAudio = await import("/module_audio.js");
+  mPhysics = await import("/module_physics.js");
+
+  spriteSheet = await mRenderer.loadImage("sheet_megaman.png");
+  track_guitar = await loadTrack("multi-track_leadguitar.mp3");
+  track_drums = await loadTrack("multi-track_drums.mp3");
+  audio_sheet = await loadAudio("audio-sheet_countdown.mp3");
+
+  frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", "rgb(250, 250, 250)", "16px sans-serif");
+  frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", "rgb(250, 250, 250)", "16px sans-serif");
+}
+
+async function setup() {
+  await mRenderer.init("screen", 320, 240);
+  await mAudio.init();
+  await mPhysics.init();
 
   document.addEventListener("keydown", keyDownHandler, false);
   document.addEventListener("keyup", keyUpHandler, false);
+
+  characters.forEach((c) => {
+    c.renderable = mRenderer.newRenderableSprite(0, 0, c.body.width, c.body.height, 0.5, 1, false, false, spriteSheet, 0);
+  });
+  updateRenderables();
 }
 
 function cleanup() {
@@ -260,27 +266,6 @@ function cleanup() {
     onkeydown = onclick = undefined;
     location.reload();
   };
-}
-
-async function load() {
-  renderer = await import("/module_draw.js");
-  sprite_sheet = await loadImage("sheet_megaman.png");
-  track_guitar = await loadTrack("multi-track_leadguitar.mp3");
-  track_drums = await loadTrack("multi-track_drums.mp3");
-  audio_sheet = await loadAudio("audio-sheet_countdown.mp3");
-}
-
-async function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.src = url;
-    img.addEventListener("load", () => {
-      resolve(img);
-    });
-    img.addEventListener("error", () => {
-      reject();
-    });
-  });
 }
 
 async function loadAudio(url) {
@@ -303,22 +288,6 @@ function createTrack(audioBuffer, name) {
   trackSource.name = name;
   trackSource.bufferRef = audioBuffer;
   return trackSource;
-}
-
-function showSprite(x, y, idx, dir) {
-  const spritesInARow = sprite_sheet.width / SPRITE_SIZE;
-  const iy = Math.trunc(idx / spritesInARow);
-  const ix = idx % spritesInARow;
-  ctx.save();
-  ctx.translate(x + SPRITE_SIZE / 2, y + SPRITE_SIZE / 2);
-  if (dir > 0) {
-    ctx.scale(1, 1);
-    ctx.drawImage(sprite_sheet, ix * SPRITE_SIZE, iy * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, -SPRITE_SIZE / 2, -SPRITE_SIZE / 2, SPRITE_SIZE, SPRITE_SIZE);
-  } else {
-    ctx.scale(-1, 1);
-    ctx.drawImage(sprite_sheet, ix * SPRITE_SIZE, iy * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, -SPRITE_SIZE / 2, -SPRITE_SIZE / 2, SPRITE_SIZE, SPRITE_SIZE);
-  }
-  ctx.restore();
 }
 
 function playTrack(trackSource, loop) {
@@ -353,8 +322,9 @@ async function frame(time) {
   const currTime = time - frameControl.startTime;
 
   if (input_button_extra_1 === 1) {
-    debugView = !debugView;
+    mRenderer.setDebugLevel(mRenderer.setDebugLevel() + 1);
   }
+  mRenderer.setDebugLevel(1);
 
   if (currTime - endTime > 3000) {
     console.log("END");
@@ -364,14 +334,16 @@ async function frame(time) {
     animationFrameId = requestAnimationFrame(frame);
 
     update(currTime);
-    draw(currTime);
+    mRenderer.render(currTime);
     input(currTime);
 
     frameControl.frameCount++;
     if (Math.trunc(currTime) % 1000 === 0) {
       frameControl.fps = frameControl.frameCount;
       frameControl.frameCount = 0;
+      frameControl.textFps.text = `${frameControl.fps} fps`;
     }
+    frameControl.textSec.text = `${(currTime / 1000).toFixed(1)} s`;
   }
 }
 
@@ -482,14 +454,19 @@ function update(time) {
     playAnimation(c, time);
   });
 
-  //projectiles.forEach((p) => {
-  //  playAnimation(p, time);
-  //});
+  updateRenderables();
+}
+
+function updateRenderables() {
+  characters.forEach((c) => {
+    c.renderable.posX = c.body.x;
+    c.renderable.posY = c.body.y;
+    c.renderable.flipX = c.body.dir < 0;
+    c.renderable.index = c.animation.currFrame;
+  });
 }
 
 function draw(time) {
-  renderer.clear(ctx);
-
   ctx.fillStyle = "rgb(128, 128, 128)";
   platforms.forEach((p) => {
     ctx.fillRect(p.start, p.height, p.end - p.start, 5);
@@ -502,13 +479,6 @@ function draw(time) {
         playEffect(audio_sheet, c.animation.currAudioEffect.start, c.animation.currAudioEffect.end);
         c.animation.currAudioEffect = null;
       }
-      if (debugView) {
-        ctx.strokeStyle = "rgb(50, 0, 0)";
-        const e = envelope(c.body, true);
-        ctx.strokeRect(e.x1, e.y1, e.x2 - e.x1, e.y2 - e.y1);
-        ctx.fillStyle = "rgb(255, 255, 255)";
-        ctx.fillRect(c.body.x, c.body.y, 1, 1);
-      }
     }
   });
 
@@ -520,32 +490,8 @@ function draw(time) {
         p.animation.currAudioEffect = null;
       }
       //showSprite(p.body.x - SPRITE_SIZE / 2, p.body.y - SPRITE_SIZE / 2, 37, p.body.dir);
-      if (debugView) {
-        ctx.strokeStyle = "rgb(50, 0, 0)";
-        const e = envelope(p.body);
-        ctx.strokeRect(e.x1, e.y1, e.x2 - e.x1, e.y2 - e.y1);
-        ctx.fillStyle = "rgb(255, 255, 255)";
-        ctx.fillRect(p.body.x, p.body.y, 1, 1);
-      }
     }
   });
-
-  if (debugView) {
-    ctx.fillStyle = "rgb(250, 250, 250)";
-    ctx.font = "16px sans-serif";
-    ctx.textBaseline = "top";
-    ctx.textAlign = "left";
-    ctx.fillText((time / 1000).toFixed(1) + " s", 0, 0);
-    ctx.textAlign = "right";
-    ctx.fillText(frameControl.fps + " fps", 320, 0);
-    ctx.textAlign = "center";
-    ctx.fillStyle = input_button_fire ? "rgb(255, 28, 28)" : "rgb(250, 250, 250)";
-    ctx.fillText("fire", 160 + 20, 0);
-    ctx.fillStyle = input_button_jump ? "rgb(255, 28, 28)" : "rgb(250, 250, 250)";
-    ctx.fillText("jump", 160 - 20, 0);
-  }
-
-  ctxScreen.drawImage(offscreenCanvas.transferToImageBitmap(), 0, 0);
 }
 
 function input(time) {
