@@ -38,6 +38,9 @@ const Actions = {
   HIT: "hit",
   DEATH: "death",
   WIN: "win",
+  BALL_FIRED: "ball_fired",
+  BALL_GOING: "ball_going",
+  BALL_HIT: "ball_hit",
 };
 
 const States = {
@@ -49,33 +52,6 @@ const AudioEffects = {
   STEP: { start: 6, end: 6.1 },
   JUMP: { start: 12, end: 13 },
   FIRE: { start: 14, end: 15 },
-};
-
-const ProjectileAnimations = {
-  SMALL_BALL: {
-    FIRED: {
-      frames: [{ frame: 61, audioEffect: AudioEffects.FIRE }, 60],
-      delay: 50,
-    },
-    GOING: {
-      frames: [37, 38],
-      delay: 100,
-    },
-    HIT: {
-      frames: [60, 61, 62, 63, 64, 65, 66],
-      delay: 20,
-    },
-  },
-};
-
-const ProjectileTemplates = {
-  SMALL_BALL: {
-    name: "projectile_small_ball_",
-    body: newPhysicsBody(10, 120, 10, 10, 5, 0),
-    animation: newAnimationData(Actions.IDLE, States.NORMAL, 0, 0, ProjectileAnimations.SMALL_BALL.FIRED),
-    power: 1,
-    next: {},
-  },
 };
 
 const characterAnimations = [
@@ -148,6 +124,24 @@ const characterAnimations = [
     frames: [28],
     delay: 1000,
   },
+  {
+    state: States.NORMAL,
+    action: Actions.BALL_FIRED,
+    frames: [{ frame: 61, audioEffect: AudioEffects.FIRE }, 60],
+    delay: 50,
+  },
+  {
+    state: States.NORMAL,
+    action: Actions.BALL_GOING,
+    frames: [37, 38],
+    delay: 100,
+  },
+  {
+    state: States.NORMAL,
+    action: Actions.BALL_HIT,
+    frames: [60, 61, 62, 63, 64, 65, 66],
+    delay: 20,
+  },
 ];
 
 const platforms = [
@@ -155,6 +149,16 @@ const platforms = [
   { start: 0, end: 150, height: 180 },
   { start: 250, end: 320, height: 120 },
 ];
+
+const ProjectileTemplates = {
+  SMALL_BALL: {
+    name: "projectile_small_ball_",
+    body: newPhysicsBody(10, 120, 10, 10, 5, 0),
+    animation: newAnimationData(Actions.BALL_FIRED, States.NORMAL),
+    power: 1,
+    next: {},
+  },
+};
 
 const characters = [
   {
@@ -196,10 +200,13 @@ function newAnimationData(action, state, frameIndex, previousTime, moreAttr) {
   return { action, state, frameIndex, previousTime, currFrame: 0, playing: true, ...moreAttr };
 }
 
+let projectile_id = 0;
 function newProjectile(template, x, y, dir) {
   const projectile = {
-    ...template,
+    ...deepClone(template),
+    name: template.name + projectile_id++,
     body: { ...template.body, x, y, dir },
+    renderable: mRenderer.newRenderableSprite(x, y, template.body.width, template.body.height, 0.5, 0.5, false, false, spriteSheet, 0),
   };
   projectiles.push(projectile);
   return projectile;
@@ -364,26 +371,32 @@ function update(time) {
 
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const p = projectiles[i];
-    p.body.x += p.body.dir * p.body.xSpeed;
-    if (p.body.x < 0 || p.body.x > 320) {
-      console.log("deleting projectile", i, p.body.x);
+    if (p.animation.action === Actions.BALL_HIT && !p.animation.playing) {
+      console.log("deleting projectile", i, "hit");
       releaseModules(p);
       projectiles.splice(i, 1);
     }
-    if (p.animation.action === Actions.IDLE && !p.animation.isPlaying) {
-      p.next.action = Actions.WALK;
-    }
-    const hitCharacter = characters.find((c) => collision(c.body, p.body));
-    if (hitCharacter) {
-      hitCharacter.isHit = true;
-      hitCharacter.hitTime = time;
-      hitCharacter.energy -= p.power;
-      if (hitCharacter.energy < 0) {
-        hitCharacter.energy = 0;
+    if ([Actions.BALL_FIRED, Actions.BALL_GOING].includes(p.animation.action)) {
+      if (p.animation.action === Actions.BALL_FIRED && !p.animation.playing) {
+        p.next.action = Actions.BALL_GOING;
       }
-      console.log("deleting character", i, hitCharacter.name);
-      releaseModules(p);
-      projectiles.splice(i, 1);
+      p.body.x += p.body.dir * p.body.xSpeed;
+      if (p.body.x < 0 || p.body.x > 320) {
+        console.log("deleting projectile", i, p.body.x);
+        releaseModules(p);
+        projectiles.splice(i, 1);
+      }
+      const hitCharacter = characters.find((c) => collision(c.body, p.body));
+      if (hitCharacter) {
+        p.next.action = Actions.BALL_HIT;
+        hitCharacter.isHit = true;
+        hitCharacter.hitTime = time;
+        hitCharacter.energy -= p.power;
+        if (hitCharacter.energy < 0) {
+          hitCharacter.energy = 0;
+        }
+        console.log("projectile hit", i, hitCharacter.name);
+      }
     }
   }
 
@@ -459,6 +472,9 @@ function update(time) {
   characters.forEach((c) => {
     playAnimation(c, time);
   });
+  projectiles.forEach((p) => {
+    playAnimation(p, time);
+  });
 
   updateModules();
 }
@@ -470,38 +486,16 @@ function updateModules() {
     c.renderable.flipX = c.body.dir < 0;
     c.renderable.index = c.animation.currFrame;
   });
+  projectiles.forEach((p) => {
+    p.renderable.posX = p.body.x;
+    p.renderable.posY = p.body.y;
+    p.renderable.flipX = p.body.dir < 0;
+    p.renderable.index = p.animation.currFrame;
+  });
 }
 
 function releaseModules(obj) {
   mRenderer.removeRenderable(obj.renderable);
-}
-
-function draw(time) {
-  ctx.fillStyle = "rgb(128, 128, 128)";
-  platforms.forEach((p) => {
-    ctx.fillRect(p.start, p.height, p.end - p.start, 5);
-  });
-
-  characters.forEach((c) => {
-    if (c.animation) {
-      showSprite(c.body.x - SPRITE_SIZE / 2, c.body.y - SPRITE_SIZE, c.animation.currFrame, c.body.dir);
-      if (c.animation.currAudioEffect) {
-        playEffect(audio_sheet, c.animation.currAudioEffect.start, c.animation.currAudioEffect.end);
-        c.animation.currAudioEffect = null;
-      }
-    }
-  });
-
-  projectiles.forEach((p) => {
-    if (p.animation) {
-      showSprite(p.body.x - SPRITE_SIZE / 2, p.body.y - SPRITE_SIZE, p.animation.currFrame, p.body.dir);
-      if (p.animation.currAudioEffect) {
-        playEffect(audio_sheet, p.animation.currAudioEffect.start, p.animation.currAudioEffect.end);
-        p.animation.currAudioEffect = null;
-      }
-      //showSprite(p.body.x - SPRITE_SIZE / 2, p.body.y - SPRITE_SIZE / 2, 37, p.body.dir);
-    }
-  });
 }
 
 function input(time) {
@@ -665,4 +659,8 @@ function envelope(body, base = false) {
       x2: body.x + body.width / 2,
       y2: body.y + body.height / 2,
     };
+}
+
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
 }
