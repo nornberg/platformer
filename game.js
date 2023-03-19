@@ -43,6 +43,11 @@ const Actions = {
   BALL_HIT: "ball_hit",
 };
 
+const ObjectTypes = {
+  CHARACTER: "character",
+  PROJECTILE: "projectile",
+};
+
 const States = {
   NORMAL: "normal",
   SHOOTING: "shooting",
@@ -157,10 +162,12 @@ const ProjectileTemplates = {
     animation: newAnimationData(Actions.BALL_FIRED, States.NORMAL),
     power: 1,
     next: {},
+    active: true,
+    type: ObjectTypes.PROJECTILE,
   },
 };
 
-const characters = [
+const objects = [
   {
     name: "player",
     body: newPhysicsBody(180, 50, 24, 40, 0, 0),
@@ -169,6 +176,7 @@ const characters = [
     energy: 3,
     lastStepTime: 0,
     next: {},
+    type: ObjectTypes.CHARACTER,
   },
   {
     name: "enemy_1",
@@ -178,6 +186,7 @@ const characters = [
     energy: 3,
     lastStepTime: 0,
     next: {},
+    type: ObjectTypes.CHARACTER,
   },
   {
     name: "enemy_2",
@@ -187,10 +196,9 @@ const characters = [
     energy: 3,
     lastStepTime: 0,
     next: {},
+    type: ObjectTypes.CHARACTER,
   },
 ];
-
-const projectiles = [];
 
 function newPhysicsBody(x, y, width, height, xSpeed = 0, vSpeed = 0, dir = 1) {
   return { dir, floored: false, x, y, width, height, xSpeed, vSpeed };
@@ -208,7 +216,7 @@ function newProjectile(template, x, y, dir) {
     body: { ...template.body, x, y, dir },
     renderable: mRenderer.newRenderableSprite(x, y, template.body.width, template.body.height, 0.5, 0.5, false, false, spriteSheet, 0),
   };
-  projectiles.push(projectile);
+  objects.push(projectile);
   return projectile;
 }
 
@@ -257,13 +265,13 @@ async function setup() {
   document.addEventListener("keydown", keyDownHandler, false);
   document.addEventListener("keyup", keyUpHandler, false);
 
-  characters.forEach((c) => {
-    c.renderable = mRenderer.newRenderableSprite(0, 0, c.body.width, c.body.height, 0.5, 1, false, false, spriteSheet, 0);
+  objects.forEach((obj) => {
+    obj.renderable = mRenderer.newRenderableSprite(0, 0, obj.body.width, obj.body.height, 0.5, 1, false, false, spriteSheet, 0);
+    updateModules(obj);
   });
   platforms.forEach((p) => {
     p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray");
   });
-  updateModules();
 }
 
 function cleanup() {
@@ -358,140 +366,124 @@ async function frame(time) {
 }
 
 function update(time) {
-  for (let i = characters.length - 1; i >= 0; i--) {
-    if (!characters[i].active) {
-      releaseModules(characters[i]);
-      characters.splice(i, 1);
-    }
-  }
-
-  characters.forEach((c) => {
-    c.next = { action: c.next.action, state: c.next.state };
-  });
-
-  for (let i = projectiles.length - 1; i >= 0; i--) {
-    const p = projectiles[i];
-    if (p.animation.action === Actions.BALL_HIT && !p.animation.playing) {
-      console.log("deleting projectile", i, "hit");
-      releaseModules(p);
-      projectiles.splice(i, 1);
-    }
-    if ([Actions.BALL_FIRED, Actions.BALL_GOING].includes(p.animation.action)) {
-      if (p.animation.action === Actions.BALL_FIRED && !p.animation.playing) {
-        p.next.action = Actions.BALL_GOING;
-      }
-      p.body.x += p.body.dir * p.body.xSpeed;
-      if (p.body.x < 0 || p.body.x > 320) {
-        console.log("deleting projectile", i, p.body.x);
-        releaseModules(p);
-        projectiles.splice(i, 1);
-      }
-      const hitCharacter = characters.find((c) => collision(c.body, p.body));
-      if (hitCharacter) {
-        p.next.action = Actions.BALL_HIT;
-        hitCharacter.isHit = true;
-        hitCharacter.hitTime = time;
-        hitCharacter.energy -= p.power;
-        if (hitCharacter.energy < 0) {
-          hitCharacter.energy = 0;
-        }
-        console.log("projectile hit", i, hitCharacter.name);
-      }
-    }
-  }
-
-  if (characters.length === 1 && characters[0].name === "player") {
-    characters[0].next.action = Actions.WIN;
-    if (!endTime) endTime = time;
-  } else {
-    if (input_axis_hor !== 0) {
-      characters[0].body.dir = input_axis_hor;
-      characters[0].body.xSpeed += 0.1;
-      if (characters[0].body.xSpeed > 3) characters[0].body.xSpeed = 3;
+  for (let i = objects.length - 1; i >= 0; i--) {
+    const obj = objects[i];
+    if (!obj.active) {
+      console.log("Removing object " + obj.name);
+      releaseModules(obj);
+      objects.splice(i, 1);
     } else {
-      characters[0].body.xSpeed -= 0.3;
-      if (characters[0].body.xSpeed < 0) characters[0].body.xSpeed = 0;
+      obj.next = { action: obj.next.action, state: obj.next.state };
     }
-    characters[0].next.fire = input_button_fire;
-
-    if (input_button_jump === 1 && characters[0].body.floored) {
-      console.log("JUMP");
-      characters[0].body.vSpeed = -5;
-      characters[0].body.y--;
-    }
-
-    characters.forEach((c) => {
-      if (c.name !== "player") {
-        if (c.body.floored && (c.body.x < c.body.floor.start || c.body.x > c.body.floor.end)) c.body.dir *= -1;
-      }
-    });
-
-    characters.forEach((c) => {
-      c.body.floor = checkFloor(c);
-      if (c.body.floored) {
-        c.body.vSpeed = 0;
-        c.body.y = c.body.floor.height;
-      } else {
-        c.body.vSpeed += 0.2;
-        if (c.body.vSpeed > 5) c.body.vSpeed = 5;
-        c.body.y += c.body.vSpeed;
-      }
-      c.body.x += c.body.dir * c.body.xSpeed;
-      if (c.isHit) {
-        c.next.action = c.energy === 0 ? Actions.DEATH : Actions.HIT;
-        c.next.state = States.NORMAL;
-        c.body.x -= c.body.dir;
-        if (time - c.hitTime > 250) {
-          c.isHit = false;
-          if (c.energy === 0) {
-            c.active = false;
-          }
-        }
-      } else {
-        if (c.body.vSpeed < 0) {
-          c.next.action = Actions.JUMP;
-        } else if (c.body.vSpeed > 0) {
-          c.next.action = Actions.FALL;
-        } else if (c.body.xSpeed > 0) {
-          c.next.action = Actions.WALK;
-        } else {
-          c.next.action = Actions.IDLE;
-        }
-        if (c.next.fire === 0) {
-          c.next.state = States.NORMAL;
-        } else {
-          c.next.state = States.SHOOTING;
-          if (c.next.fire === 1) {
-            newProjectile(ProjectileTemplates.SMALL_BALL, c.body.x + c.body.dir * 27, c.body.y - 21, c.body.dir);
-          }
-        }
-      }
-    });
   }
 
-  characters.forEach((c) => {
-    playAnimation(c, time);
-  });
-  projectiles.forEach((p) => {
-    playAnimation(p, time);
-  });
+  if (objects.length === 1 && objects[0].name === "player") {
+    objects[0].next.action = Actions.WIN;
+    objects[0].body.dir = 1;
+    objects[0].body.xSpeed = 0;
+    if (!endTime) endTime = time;
+  } else if (objects[0].next.action !== Actions.WIN) {
+    if (input_axis_hor !== 0) {
+      objects[0].body.dir = input_axis_hor;
+      objects[0].body.xSpeed += 0.1;
+      if (objects[0].body.xSpeed > 3) objects[0].body.xSpeed = 3;
+    } else {
+      objects[0].body.xSpeed -= 0.3;
+      if (objects[0].body.xSpeed < 0) objects[0].body.xSpeed = 0;
+    }
+    objects[0].next.fire = input_button_fire;
+    if (input_button_jump === 1 && objects[0].body.floored) {
+      console.log("JUMP");
+      objects[0].body.vSpeed = -5;
+      objects[0].body.y--;
+    }
+  }
 
-  updateModules();
+  objects.forEach((obj) => {
+    if (!endTime) {
+      switch (obj.type) {
+        case ObjectTypes.PROJECTILE:
+          if (obj.animation.action === Actions.BALL_HIT) {
+            if (!obj.animation.playing) {
+              obj.active = false;
+            }
+          }
+          if ([Actions.BALL_FIRED, Actions.BALL_GOING].includes(obj.animation.action)) {
+            if (obj.animation.action === Actions.BALL_FIRED && !obj.animation.playing) {
+              obj.next.action = Actions.BALL_GOING;
+            }
+            obj.body.x += obj.body.dir * obj.body.xSpeed;
+            if (obj.body.x < 0 || obj.body.x > 320) {
+              obj.active = false;
+            }
+            const hitCharacter = objects.filter((c) => c.type === ObjectTypes.CHARACTER).find((c) => collision(c.body, obj.body));
+            if (hitCharacter) {
+              obj.next.action = Actions.BALL_HIT;
+              hitCharacter.isHit = true;
+              hitCharacter.hitTime = time;
+              hitCharacter.energy -= obj.power;
+              if (hitCharacter.energy < 0) {
+                hitCharacter.energy = 0;
+              }
+            }
+          }
+          break;
+        case ObjectTypes.CHARACTER:
+          obj.body.floor = checkFloor(obj);
+          if (obj.name !== "player") {
+            if (obj.body.floored && (obj.body.x < obj.body.floor.start || obj.body.x > obj.body.floor.end)) obj.body.dir *= -1;
+          }
+          if (obj.body.floored) {
+            obj.body.vSpeed = 0;
+            obj.body.y = obj.body.floor.height;
+          } else {
+            obj.body.vSpeed += 0.2;
+            if (obj.body.vSpeed > 5) obj.body.vSpeed = 5;
+            obj.body.y += obj.body.vSpeed;
+          }
+          obj.body.x += obj.body.dir * obj.body.xSpeed;
+          if (obj.isHit) {
+            obj.next.action = obj.energy === 0 ? Actions.DEATH : Actions.HIT;
+            obj.next.state = States.NORMAL;
+            obj.body.x -= obj.body.dir;
+            if (time - obj.hitTime > 250) {
+              obj.isHit = false;
+              if (obj.energy === 0) {
+                obj.active = false;
+              }
+            }
+          } else {
+            if (obj.body.vSpeed < 0) {
+              obj.next.action = Actions.JUMP;
+            } else if (obj.body.vSpeed > 0) {
+              obj.next.action = Actions.FALL;
+            } else if (obj.body.xSpeed > 0) {
+              obj.next.action = Actions.WALK;
+            } else {
+              obj.next.action = Actions.IDLE;
+            }
+            if (obj.next.fire === 0) {
+              obj.next.state = States.NORMAL;
+            } else {
+              obj.next.state = States.SHOOTING;
+              if (obj.next.fire === 1) {
+                newProjectile(ProjectileTemplates.SMALL_BALL, obj.body.x + obj.body.dir * 27, obj.body.y - 21, obj.body.dir);
+              }
+            }
+          }
+          break;
+      }
+    }
+    playAnimation(obj, time);
+    updateModules(obj);
+  });
 }
 
-function updateModules() {
-  characters.forEach((c) => {
-    c.renderable.posX = c.body.x;
-    c.renderable.posY = c.body.y;
-    c.renderable.flipX = c.body.dir < 0;
-    c.renderable.index = c.animation.currFrame;
-  });
-  projectiles.forEach((p) => {
-    p.renderable.posX = p.body.x;
-    p.renderable.posY = p.body.y;
-    p.renderable.flipX = p.body.dir < 0;
-    p.renderable.index = p.animation.currFrame;
-  });
+function updateModules(obj) {
+  obj.renderable.posX = obj.body.x;
+  obj.renderable.posY = obj.body.y;
+  obj.renderable.flipX = obj.body.dir < 0;
+  obj.renderable.index = obj.animation.currFrame;
 }
 
 function releaseModules(obj) {
@@ -599,13 +591,6 @@ function playAnimation(character, time) {
       character.animation = newAnimationData(null, character.animation.state, 0, 0, newAnim);
     }
   }
-  if (time - character.animation.previousTime > character.animation.currDelay) {
-    character.animation.previousTime = time;
-    if (++character.animation.frameIndex === character.animation.frames.length) {
-      character.animation.playing = false;
-      character.animation.frameIndex = 0;
-    }
-  }
   const frameObj = character.animation.frames[character.animation.frameIndex];
   if (frameObj !== null && typeof frameObj === "object") {
     if (character.animation.currFrame !== frameObj.frame) {
@@ -616,6 +601,13 @@ function playAnimation(character, time) {
   } else {
     character.animation.currFrame = frameObj;
     character.animation.currDelay = character.animation.delay;
+  }
+  if (time - character.animation.previousTime > character.animation.currDelay) {
+    character.animation.previousTime = time;
+    if (++character.animation.frameIndex === character.animation.frames.length) {
+      character.animation.playing = false;
+      character.animation.frameIndex = 0;
+    }
   }
 }
 
