@@ -10,17 +10,16 @@ let mRenderer;
 let mAudio;
 let mPhysics;
 
-let audioCtx;
-let spriteSheet;
-let audio_sheet;
-let track_guitar;
-let track_drums;
+let fileSpriteSheet;
+let fileAudioSheet;
+let fileTrackGuitar;
+let fileTrackDrums;
+
 let input_axis_hor = 0;
 let input_axis_ver = 0;
 let input_button_fire = 0;
 let input_button_jump = 0;
 let input_button_extra_1 = 0;
-let trackOffset = null;
 let endTime;
 let animationFrameId;
 
@@ -53,10 +52,14 @@ const States = {
   SHOOTING: "shooting",
 };
 
-const AudioEffects = {
-  STEP: { start: 6, end: 6.1 },
-  JUMP: { start: 12, end: 13 },
-  FIRE: { start: 14, end: 15 },
+const AudioIds = {
+  CHAR_AUDIO_SHEET: "char_audio_sheet",
+  TRACK_GUITAR: "track_guitar",
+  TRACK_DRUMS: "track_drums",
+  EFFECT_CHAR_STEP: "effect_char_step",
+  EFFECT_CHAR_JUMP: "effect_char_jump",
+  EFFECT_CHAR_SHOT: "effect_char_shot",
+  EFFECT_CHAT_HIT: "effect_char_hit",
 };
 
 const characterAnimations = [
@@ -69,14 +72,14 @@ const characterAnimations = [
   {
     state: States.NORMAL,
     action: Actions.WALK,
-    frames: [{ frame: 10, audioEffect: AudioEffects.STEP }, 11, 12, { frame: 13, audioEffect: AudioEffects.STEP }, 14, 15],
+    frames: [{ frame: 10, audioEffect: AudioIds.EFFECT_CHAR_STEP }, 11, 12, { frame: 13, audioEffect: AudioIds.EFFECT_CHAR_STEP }, 14, 15],
     delay: 120,
   },
   {
     state: States.NORMAL,
     action: Actions.JUMP,
     frames: [
-      { frame: 16, delay: 100, audioEffect: AudioEffects.JUMP },
+      { frame: 16, delay: 100, audioEffect: AudioIds.EFFECT_CHAR_JUMP },
       { frame: 17, delay: 1000 },
     ],
   },
@@ -114,13 +117,13 @@ const characterAnimations = [
   {
     state: States.SHOOTING,
     action: Actions.WALK,
-    frames: [{ frame: 20, audioEffect: AudioEffects.STEP }, 21, 22, { frame: 23, audioEffect: AudioEffects.STEP }, 24, 25],
+    frames: [{ frame: 20 /*audioEffect: AudioIds.EFFECT_CHAR_STEP*/ }, 21, 22, { frame: 23 /*audioEffect: AudioIds.EFFECT_CHAR_STEP*/ }, 24, 25],
     delay: 120,
   },
   {
     state: States.SHOOTING,
     action: Actions.JUMP,
-    frames: [{ frame: 26, audioEffect: AudioEffects.JUMP }, 27, 27, 27, 27, 27, 27],
+    frames: [{ frame: 26, audioEffect: AudioIds.EFFECT_CHAR_JUMP }, 27, 27, 27, 27, 27, 27],
     delay: 100,
   },
   {
@@ -132,7 +135,7 @@ const characterAnimations = [
   {
     state: States.NORMAL,
     action: Actions.BALL_FIRED,
-    frames: [{ frame: 61, audioEffect: AudioEffects.FIRE }, 60],
+    frames: [{ frame: 61, audioEffect: AudioIds.EFFECT_CHAR_SHOT }, 60],
     delay: 50,
   },
   {
@@ -214,7 +217,7 @@ function newProjectile(template, x, y, dir) {
     ...deepClone(template),
     name: template.name + projectile_id++,
     body: { ...template.body, x, y, dir },
-    renderable: mRenderer.newRenderableSprite(x, y, template.body.width, template.body.height, 0.5, 0.5, false, false, spriteSheet, 0),
+    renderable: mRenderer.newRenderableSprite(x, y, template.body.width, template.body.height, 0.5, 0.5, false, false, fileSpriteSheet, 0),
   };
   objects.push(projectile);
   return projectile;
@@ -241,17 +244,14 @@ async function main() {
 }
 
 async function load() {
-  // TODO fazer loadAudio não depender do audio estar inicializado.
-  audioCtx = new AudioContext();
-
   mRenderer = await import("/module_renderer.js");
   mAudio = await import("/module_audio.js");
   mPhysics = await import("/module_physics.js");
 
-  spriteSheet = await mRenderer.loadImage("sheet_megaman.png");
-  track_guitar = await loadTrack("multi-track_leadguitar.mp3");
-  track_drums = await loadTrack("multi-track_drums.mp3");
-  audio_sheet = await loadAudio("audio-sheet_countdown.mp3");
+  fileSpriteSheet = await mRenderer.loadImage("sheet_megaman.png");
+  fileAudioSheet = await mAudio.loadAudio("audio-sheet_countdown.mp3");
+  fileTrackGuitar = await mAudio.loadAudio("multi-track_leadguitar.mp3");
+  fileTrackDrums = await mAudio.loadAudio("multi-track_drums.mp3");
 
   frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", "rgb(250, 250, 250)", "16px sans-serif");
   frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", "rgb(250, 250, 250)", "16px sans-serif");
@@ -265,10 +265,19 @@ async function setup() {
   document.addEventListener("keydown", keyDownHandler, false);
   document.addEventListener("keyup", keyUpHandler, false);
 
+  await mAudio.setAudioSheet(AudioIds.CHAR_AUDIO_SHEET, fileAudioSheet);
+  await mAudio.setTrack(AudioIds.TRACK_GUITAR, fileTrackGuitar);
+  await mAudio.setTrack(AudioIds.TRACK_DRUMS, fileTrackDrums);
+  await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 6, 6.1);
+  await mAudio.setEffect(AudioIds.EFFECT_CHAR_JUMP, AudioIds.CHAR_AUDIO_SHEET, 12, 13);
+  await mAudio.setEffect(AudioIds.EFFECT_CHAR_SHOT, AudioIds.CHAR_AUDIO_SHEET, 14, 15);
+
   objects.forEach((obj) => {
-    obj.renderable = mRenderer.newRenderableSprite(0, 0, obj.body.width, obj.body.height, 0.5, 1, false, false, spriteSheet, 0);
+    obj.renderable = mRenderer.newRenderableSprite(0, 0, obj.body.width, obj.body.height, 0.5, 1, false, false, fileSpriteSheet, 0);
+    obj.playable = mAudio.newPlayableEffect();
     updateModules(obj);
   });
+
   platforms.forEach((p) => {
     p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray");
   });
@@ -284,53 +293,6 @@ function cleanup() {
     onkeydown = onclick = undefined;
     location.reload();
   };
-}
-
-async function loadAudio(url) {
-  const response = await fetch(url);
-  const arrayBuffer = await response.arrayBuffer();
-  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-  audioBuffer.name = url;
-  return audioBuffer;
-}
-
-async function loadTrack(url) {
-  const audioBuffer = await loadAudio(url);
-  return createTrack(audioBuffer, url);
-}
-
-function createTrack(audioBuffer, name) {
-  const trackSource = audioCtx.createBufferSource();
-  trackSource.buffer = audioBuffer;
-  trackSource.connect(audioCtx.destination);
-  trackSource.name = name;
-  trackSource.bufferRef = audioBuffer;
-  return trackSource;
-}
-
-function playTrack(trackSource, loop) {
-  console.log("play track ", trackSource.name);
-
-  if (trackSource.played) {
-    trackSource = createTrack(trackSource.bufferRef, trackSource.name);
-    console.log("-- recreated");
-  }
-
-  trackSource.loop = loop;
-  trackSource.played = true;
-  if (trackOffset === null) {
-    trackSource.start();
-    trackOffset = audioCtx.currentTime;
-  } else {
-    trackSource.start(0, audioCtx.currentTime - trackOffset);
-  }
-}
-
-function playEffect(audioBuffer, tStart, tEnd) {
-  console.log("play effect ", audioBuffer.name);
-  const trackSource = createTrack(audioBuffer, audioBuffer.name);
-  trackSource.start(0, tStart);
-  trackSource.stop(audioCtx.currentTime + tEnd - tStart);
 }
 
 async function frame(time) {
@@ -353,6 +315,7 @@ async function frame(time) {
 
     update(currTime);
     mRenderer.render(currTime);
+    mAudio.play(currTime);
     input(currTime);
 
     frameControl.frameCount++;
@@ -480,14 +443,21 @@ function update(time) {
 }
 
 function updateModules(obj) {
-  obj.renderable.posX = obj.body.x;
-  obj.renderable.posY = obj.body.y;
-  obj.renderable.flipX = obj.body.dir < 0;
-  obj.renderable.index = obj.animation.currFrame;
+  if (obj.playable) {
+    obj.playable.effectId = obj.animation.currAudioEffect;
+    obj.playable.playing = obj.playable.effectId != null;
+  }
+  if (obj.renderable) {
+    obj.renderable.posX = obj.body.x;
+    obj.renderable.posY = obj.body.y;
+    obj.renderable.flipX = obj.body.dir < 0;
+    obj.renderable.index = obj.animation.currFrame;
+  }
 }
 
 function releaseModules(obj) {
   mRenderer.removeRenderable(obj.renderable);
+  mAudio.removePlayable(obj.playable);
 }
 
 function input(time) {
@@ -591,7 +561,9 @@ function playAnimation(character, time) {
       character.animation = newAnimationData(null, character.animation.state, 0, 0, newAnim);
     }
   }
+
   const frameObj = character.animation.frames[character.animation.frameIndex];
+
   if (frameObj !== null && typeof frameObj === "object") {
     if (character.animation.currFrame !== frameObj.frame) {
       character.animation.currAudioEffect = frameObj.audioEffect;
@@ -602,6 +574,7 @@ function playAnimation(character, time) {
     character.animation.currFrame = frameObj;
     character.animation.currDelay = character.animation.delay;
   }
+
   if (time - character.animation.previousTime > character.animation.currDelay) {
     character.animation.previousTime = time;
     if (++character.animation.frameIndex === character.animation.frames.length) {
