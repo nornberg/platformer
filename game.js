@@ -159,50 +159,7 @@ const platforms = [
   { start: 250, end: 320, height: 120 },
 ];
 
-const ProjectileTemplates = {
-  SMALL_BALL: {
-    name: "projectile_small_ball_",
-    body: newPhysicsBody(10, 120, 10, 10, 5, 0),
-    animation: newAnimationData(Actions.BALL_FIRED, States.NORMAL),
-    power: 1,
-    next: {},
-    active: true,
-    type: ObjectTypes.PROJECTILE,
-  },
-};
-
-const objects = [
-  {
-    name: "player",
-    body: newPhysicsBody(180, 50, 24, 40, 0, 0),
-    animation: newAnimationData(Actions.IDLE, States.NORMAL),
-    active: true,
-    energy: 3,
-    lastStepTime: 0,
-    next: {},
-    type: ObjectTypes.CHARACTER,
-  },
-  {
-    name: "enemy_1",
-    body: newPhysicsBody(20, 180, 24, 40, 1, 0),
-    animation: newAnimationData(Actions.IDLE, States.NORMAL),
-    active: true,
-    energy: 3,
-    lastStepTime: 0,
-    next: {},
-    type: ObjectTypes.CHARACTER,
-  },
-  {
-    name: "enemy_2",
-    body: newPhysicsBody(270, 120, 24, 40, 1, 0, -1),
-    animation: newAnimationData(Actions.IDLE, States.NORMAL),
-    active: true,
-    energy: 3,
-    lastStepTime: 0,
-    next: {},
-    type: ObjectTypes.CHARACTER,
-  },
-];
+const objects = [];
 
 function newPhysicsBody(x, y, width, height, xSpeed = 0, vSpeed = 0, dir = 1) {
   return { dir, floored: false, x, y, width, height, xSpeed, vSpeed };
@@ -213,16 +170,37 @@ function newAnimationData(action, state, frameIndex, previousTime, moreAttr) {
 }
 
 let projectile_id = 0;
-function newProjectile(template, x, y, dir) {
+function newProjectileBall(x, y, dir) {
   const projectile = {
-    ...deepClone(template),
-    name: template.name + projectile_id++,
-    body: { ...template.body, x, y, dir },
-    renderable: mRenderer.newRenderableSprite(x, y, template.body.width, template.body.height, 0.5, 0.5, false, false, fileSpriteSheet, 0),
+    name: `projectile_ball_${projectile_id++}`,
+    active: true,
+    type: ObjectTypes.PROJECTILE,
+    body: newPhysicsBody(x, y, 10, 10, 5, 0, dir),
+    animation: newAnimationData(Actions.BALL_FIRED, States.NORMAL),
+    renderable: mRenderer.newRenderableSprite(x, y, 10, 10, 0.5, 0.5, false, false, fileSpriteSheet, 0),
     playable: mAudio.newPlayableEffect(),
+    next: {},
+    power: 1,
   };
   objects.push(projectile);
   return projectile;
+}
+
+function newCharacterMegaman(name, x, y, dir) {
+  const character = {
+    name,
+    active: true,
+    type: ObjectTypes.CHARACTER,
+    body: newPhysicsBody(x, y, 24, 40, 2, 0, dir),
+    animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    renderable: mRenderer.newRenderableSprite(x, y, 24, 40, 0.5, 1, false, false, fileSpriteSheet, 0),
+    playable: mAudio.newPlayableEffect(),
+    next: {},
+    energy: 3,
+    lastStepTime: 0,
+  };
+  objects.push(character);
+  return character;
 }
 
 async function main() {
@@ -270,24 +248,20 @@ async function setup() {
   await mAudio.setAudioSheet(AudioIds.CHAR_AUDIO_SHEET, fileAudioSheet);
   await mAudio.setTrack(AudioIds.TRACK_GUITAR, fileTrackGuitar);
   await mAudio.setTrack(AudioIds.TRACK_DRUMS, fileTrackDrums);
-  //await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 6, 6.1);
-  await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 0, 0);
+  await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 6, 6.1);
+  //await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 0, 0);
   await mAudio.setEffect(AudioIds.EFFECT_CHAR_JUMP, AudioIds.CHAR_AUDIO_SHEET, 12.3, 13);
   await mAudio.setEffect(AudioIds.EFFECT_CHAR_HIT, AudioIds.CHAR_AUDIO_SHEET, 0.1, 1);
   await mAudio.setEffect(AudioIds.EFFECT_BALL_SHOT, AudioIds.CHAR_AUDIO_SHEET, 18.15, 18.2);
   await mAudio.setEffect(AudioIds.EFFECT_BALL_HIT, AudioIds.CHAR_AUDIO_SHEET, 14.2, 15);
 
-  objects.forEach((obj) => {
-    obj.renderable = mRenderer.newRenderableSprite(0, 0, obj.body.width, obj.body.height, 0.5, 1, false, false, fileSpriteSheet, 0);
-    obj.playable = mAudio.newPlayableEffect();
-    updateModules(obj);
-  });
+  newCharacterMegaman("player", 180, 50, 1);
+  newCharacterMegaman("enemy_01", 20, 180, 1);
+  newCharacterMegaman("enemy_02", 270, 120, -1);
 
   platforms.forEach((p) => {
     p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray");
   });
-
-  mAudio.playEffect(AudioIds.EFFECT_CHAR_STEP);
 }
 
 function cleanup() {
@@ -437,7 +411,7 @@ function update(time) {
             } else {
               obj.next.state = States.SHOOTING;
               if (obj.next.fire === 1) {
-                newProjectile(ProjectileTemplates.SMALL_BALL, obj.body.x + obj.body.dir * 27, obj.body.y - 21, obj.body.dir);
+                newProjectileBall(obj.body.x + obj.body.dir * 27, obj.body.y - 21, obj.body.dir);
               }
             }
           }
