@@ -161,10 +161,6 @@ const platforms = [
 
 const objects = [];
 
-function newPhysicsBody(x, y, width, height, xSpeed = 0, vSpeed = 0, dir = 1) {
-  return { dir, floored: false, x, y, width, height, xSpeed, vSpeed };
-}
-
 function newAnimationData(action, state, frameIndex, previousTime, moreAttr) {
   return { action, state, frameIndex, previousTime, currFrame: 0, playing: true, ...moreAttr };
 }
@@ -175,7 +171,7 @@ function newProjectileBall(x, y, dir) {
     name: `projectile_ball_${projectile_id++}`,
     active: true,
     type: ObjectTypes.PROJECTILE,
-    body: newPhysicsBody(x, y, 10, 10, 5, 0, dir),
+    body: mPhysics.newPhysicsBody(x, y, 10, 10, 5, 0, dir, 5, 0),
     animation: newAnimationData(Actions.BALL_FIRED, States.NORMAL),
     renderable: mRenderer.newRenderableSprite(x, y, 10, 10, 0.5, 0.5, false, false, fileSpriteSheet, 0),
     playable: mAudio.newPlayableEffect(),
@@ -186,13 +182,13 @@ function newProjectileBall(x, y, dir) {
   return projectile;
 }
 
-function newCharacterMegaman(name, x, y, dir) {
+function newCharacterMegaman(name, x, y, xSpeed, dir) {
   const character = {
     name,
     active: true,
     type: ObjectTypes.CHARACTER,
-    body: newPhysicsBody(x, y, 24, 40, 2, 0, dir),
-    animation: newAnimationData(Actions.IDLE, States.NORMAL),
+    body: mPhysics.newPhysicsBody(x, y, 24, 40, xSpeed, 8, dir, 0, 0, 0.3, 0.3),
+    animation: newAnimationData(),
     renderable: mRenderer.newRenderableSprite(x, y, 24, 40, 0.5, 1, false, false, fileSpriteSheet, 0),
     playable: mAudio.newPlayableEffect(),
     next: {},
@@ -248,23 +244,24 @@ async function setup() {
   await mAudio.setAudioSheet(AudioIds.CHAR_AUDIO_SHEET, fileAudioSheet);
   await mAudio.setTrack(AudioIds.TRACK_GUITAR, fileTrackGuitar);
   await mAudio.setTrack(AudioIds.TRACK_DRUMS, fileTrackDrums);
-  await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 6, 6.1);
-  //await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 0, 0);
+  //await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 6, 6.1);
+  await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 0, 0);
   await mAudio.setEffect(AudioIds.EFFECT_CHAR_JUMP, AudioIds.CHAR_AUDIO_SHEET, 12.3, 13);
   await mAudio.setEffect(AudioIds.EFFECT_CHAR_HIT, AudioIds.CHAR_AUDIO_SHEET, 0.1, 1);
   await mAudio.setEffect(AudioIds.EFFECT_BALL_SHOT, AudioIds.CHAR_AUDIO_SHEET, 18.15, 18.2);
   await mAudio.setEffect(AudioIds.EFFECT_BALL_HIT, AudioIds.CHAR_AUDIO_SHEET, 14.2, 15);
 
-  newCharacterMegaman("player", 180, 50, 1);
-  newCharacterMegaman("enemy_01", 20, 180, 1);
-  newCharacterMegaman("enemy_02", 270, 120, -1);
+  newCharacterMegaman("player", 180, 50, 3, 1);
+  newCharacterMegaman("enemy_01", 20, 180, 2, 1);
+  newCharacterMegaman("enemy_02", 270, 120, 2, -1);
 
+  mPhysics.setPlatforms(platforms);
   platforms.forEach((p) => {
     p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray");
   });
 
-  mAudio.playTrack(AudioIds.TRACK_DRUMS);
-  mAudio.playTrack(AudioIds.TRACK_GUITAR);
+  //mAudio.playTrack(AudioIds.TRACK_DRUMS);
+  //mAudio.playTrack(AudioIds.TRACK_GUITAR);
 }
 
 function cleanup() {
@@ -332,21 +329,20 @@ function update(time) {
     objects[0].next.action = Actions.WIN;
     objects[0].body.dir = 1;
     objects[0].body.xSpeed = 0;
+    objects[0].body.xAccel = 0;
+    objects[0].body.xDecel = 0;
     if (!endTime) endTime = time;
   } else if (objects[0].next.action !== Actions.WIN) {
     if (input_axis_hor !== 0) {
       objects[0].body.dir = input_axis_hor;
-      objects[0].body.xSpeed += 0.1;
-      if (objects[0].body.xSpeed > 3) objects[0].body.xSpeed = 3;
+      objects[0].body.xAccel = 0.1;
     } else {
-      objects[0].body.xSpeed -= 0.3;
-      if (objects[0].body.xSpeed < 0) objects[0].body.xSpeed = 0;
+      objects[0].body.xAccel = 0;
     }
     objects[0].next.fire = input_button_fire;
     if (input_button_jump === 1 && objects[0].body.floored) {
       console.log("JUMP");
-      objects[0].body.vSpeed = -5;
-      objects[0].body.y--;
+      objects[0].body.yAccel = 1.7;
     }
   }
 
@@ -363,13 +359,14 @@ function update(time) {
             if (obj.animation.action === Actions.BALL_FIRED && !obj.animation.playing) {
               obj.next.action = Actions.BALL_GOING;
             }
-            obj.body.x += obj.body.dir * obj.body.xSpeed;
             if (obj.body.x < 0 || obj.body.x > 320) {
               obj.active = false;
             }
-            const hitCharacter = objects.filter((c) => c.type === ObjectTypes.CHARACTER).find((c) => collision(c.body, obj.body));
+            const hitCharacter = objects.filter((c) => c.type === ObjectTypes.CHARACTER).find((c) => mPhysics.collision(c.body, obj.body));
             if (hitCharacter) {
               obj.next.action = Actions.BALL_HIT;
+              obj.body.xSpeed = 0;
+              obj.body.xAccel = 0;
               hitCharacter.isHit = true;
               hitCharacter.hitTime = time;
               hitCharacter.energy -= obj.power;
@@ -380,23 +377,16 @@ function update(time) {
           }
           break;
         case ObjectTypes.CHARACTER:
-          obj.body.floor = checkFloor(obj);
           if (obj.name !== "player") {
-            if (obj.body.floored && (obj.body.x < obj.body.floor.start || obj.body.x > obj.body.floor.end)) obj.body.dir *= -1;
+            obj.body.xAccel = 0.2;
+            if (obj.body.floored && (obj.body.x < obj.body.floor.start || obj.body.x > obj.body.floor.end)) {
+              obj.body.dir *= -1;
+            }
           }
-          if (obj.body.floored) {
-            obj.body.vSpeed = 0;
-            obj.body.y = obj.body.floor.height;
-          } else {
-            obj.body.vSpeed += 0.2;
-            if (obj.body.vSpeed > 5) obj.body.vSpeed = 5;
-            obj.body.y += obj.body.vSpeed;
-          }
-          obj.body.x += obj.body.dir * obj.body.xSpeed;
           if (obj.isHit) {
             obj.next.action = obj.energy === 0 ? Actions.DEATH : Actions.HIT;
             obj.next.state = States.NORMAL;
-            obj.body.x -= obj.body.dir;
+            obj.body.xAccel = -obj.body.dir;
             if (time - obj.hitTime > 250) {
               obj.isHit = false;
               if (obj.energy === 0) {
@@ -404,9 +394,9 @@ function update(time) {
               }
             }
           } else {
-            if (obj.body.vSpeed < 0) {
+            if (obj.body.ySpeed < 0) {
               obj.next.action = Actions.JUMP;
-            } else if (obj.body.vSpeed > 0) {
+            } else if (obj.body.ySpeed > 0) {
               obj.next.action = Actions.FALL;
             } else if (obj.body.xSpeed > 0) {
               obj.next.action = Actions.WALK;
@@ -423,6 +413,45 @@ function update(time) {
             }
           }
           break;
+      }
+
+      const yPrev = obj.body.y;
+
+      if (obj.body.xAccel > 0) {
+        obj.body.xSpeed += obj.body.xAccel;
+        if (obj.body.xSpeed > obj.body.xMaxSpeed) {
+          obj.body.xSpeed = obj.body.xMaxSpeed;
+        }
+      } else {
+        obj.body.xSpeed -= obj.body.xDecel;
+        if (obj.body.xSpeed < 0) {
+          obj.body.xSpeed = 0;
+        }
+      }
+
+      if (obj.body.yAccel > 0) {
+        obj.body.ySpeed -= obj.body.yAccel;
+        if (obj.body.ySpeed < -obj.body.yMaxSpeed) {
+          obj.body.ySpeed = -obj.body.yMaxSpeed;
+        }
+        obj.body.yAccel -= obj.body.yDecel;
+        if (obj.body.yAccel < 0) {
+          obj.body.yAccel = 0;
+        }
+      } else if (!obj.body.floored) {
+        obj.body.ySpeed += obj.body.yDecel;
+        if (obj.body.ySpeed < -obj.body.yMaxSpeed) {
+          obj.body.ySpeed = -obj.body.yMaxSpeed;
+        }
+      }
+
+      obj.body.x += obj.body.dir * obj.body.xSpeed;
+      obj.body.y += obj.body.ySpeed;
+
+      mPhysics.checkFloor(obj.body, yPrev);
+      if (obj.body.floored) {
+        obj.body.ySpeed = 0;
+        obj.body.y = obj.body.floor.height;
       }
     }
     playAnimation(obj, time);
@@ -581,44 +610,6 @@ function playAnimation(character, time) {
 
 function isSameAction(anim1, anim2) {
   return anim1 && anim2 && anim1.action === anim2.action && anim1.frames?.length === anim2.frames?.length;
-}
-
-function checkFloor(character) {
-  const c = character;
-  const floors = platforms.filter((p) => {
-    const check = c.body.x + c.body.width / 2 > p.start && c.body.x - c.body.width / 2 < p.end && c.body.y >= p.height && c.body.y <= p.height + 5;
-    return check;
-  });
-  if (floors.length === 0) {
-    c.body.floored = false;
-    return null;
-  } else {
-    c.body.floored = true;
-    return floors[0];
-  }
-}
-
-function collision(body1, body2) {
-  const e1 = envelope(body1);
-  const e2 = envelope(body2);
-  return e1.x2 > e2.x1 && e1.x1 < e2.x2 && e1.y2 > e2.y1 && e1.y1 < e2.y2;
-}
-
-function envelope(body, base = false) {
-  if (base)
-    return {
-      x1: body.x - body.width / 2,
-      y1: body.y - body.height,
-      x2: body.x + body.width / 2,
-      y2: body.y,
-    };
-  else
-    return {
-      x1: body.x - body.width / 2,
-      y1: body.y - body.height / 2,
-      x2: body.x + body.width / 2,
-      y2: body.y + body.height / 2,
-    };
 }
 
 function deepClone(obj) {
