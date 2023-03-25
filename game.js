@@ -257,7 +257,7 @@ async function setup() {
 
   mPhysics.setPlatforms(platforms);
   platforms.forEach((p) => {
-    p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray");
+    p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray", true);
   });
 
   //mAudio.playTrack(AudioIds.TRACK_DRUMS);

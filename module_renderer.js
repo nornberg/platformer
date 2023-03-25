@@ -25,8 +25,8 @@ export function newRenderableSprite(posX, posY, sizeX, sizeY, anchorX, anchorY, 
   return r;
 }
 
-export function newRenderableGeometry(posX, posY, sizeX, sizeY, flipX, flipY, form, style) {
-  const r = { id: renderableId++, type: RenderableTypes.GEOMETRY, posX, posY, sizeX, sizeY, flipX, flipY, form, style };
+export function newRenderableGeometry(posX, posY, sizeX, sizeY, flipX, flipY, form, style, filled) {
+  const r = { id: renderableId++, type: RenderableTypes.GEOMETRY, posX, posY, sizeX, sizeY, flipX, flipY, form, style, filled };
   renderables.push(r);
   return r;
 }
@@ -141,10 +141,15 @@ export function renderSprite(r) {
 }
 
 export function renderGeometry(r) {
-  ctx.fillStyle = r.style;
   switch (r.form) {
     case "rect":
-      ctx.fillRect(r.posX, r.posY, r.sizeX, r.sizeY);
+      if (r.filled) {
+        ctx.fillStyle = r.style;
+        ctx.fillRect(r.posX, r.posY, r.sizeX, r.sizeY);
+      } else {
+        ctx.strokeStyle = r.style;
+        ctx.strokeRect(r.posX, r.posY, r.sizeX, r.sizeY);
+      }
       break;
   }
 }
