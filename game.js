@@ -22,6 +22,7 @@ let input_button_jump = 0;
 let input_button_extra_1 = 0;
 let endTime;
 let animationFrameId;
+let debugLevel = 0;
 
 const frameControl = {
   startTime: undefined,
@@ -178,6 +179,7 @@ function newProjectileBall(x, y, dir) {
     next: {},
     power: 1,
     renderableEnvelope: mRenderer.newRenderableGeometry(x, y, 10, 10, false, false, "rect", "white", false),
+    renderableBoundingBox: mRenderer.newRenderableGeometry(x, y, 0, 0, false, false, "rect", "blue", false),
   };
   objects.push(projectile);
   return projectile;
@@ -196,6 +198,7 @@ function newCharacterMegaman(name, x, y, xSpeed, dir) {
     energy: 3,
     lastStepTime: 0,
     renderableEnvelope: mRenderer.newRenderableGeometry(x, y, 24, 40, false, false, "rect", "white", false),
+    renderableBoundingBox: mRenderer.newRenderableGeometry(x, y, 0, 0, false, false, "rect", "blue", false),
   };
   objects.push(character);
   return character;
@@ -288,9 +291,8 @@ async function frame(time) {
   const currTime = time - frameControl.startTime;
 
   if (input_button_extra_1 === 1) {
-    mRenderer.setDebugLevel(mRenderer.setDebugLevel() + 1);
+    debugLevel = 1 - debugLevel;
   }
-  mRenderer.setDebugLevel(1);
 
   if (currTime - endTime > 3000) {
     console.log("END");
@@ -311,6 +313,8 @@ async function frame(time) {
       frameControl.textFps.text = `${frameControl.fps} fps`;
     }
     frameControl.textSec.text = `${(currTime / 1000).toFixed(1)} s`;
+    frameControl.textSec.visible = debugLevel === 1;
+    frameControl.textFps.visible = debugLevel === 1;
   }
 }
 
@@ -478,12 +482,23 @@ function updateModules(obj) {
     obj.renderableEnvelope.posY = e.y1;
     obj.renderableEnvelope.sizeX = e.x2 - e.x1;
     obj.renderableEnvelope.sizeY = e.y2 - e.y1;
+    obj.renderableEnvelope.visible = debugLevel === 1;
+  }
+  if (obj.renderableBoundingBox) {
+    obj.renderableBoundingBox.posX = obj.renderable.posX - obj.renderable.anchorX * obj.renderable.sizeX;
+    obj.renderableBoundingBox.posY = obj.renderable.posY - obj.renderable.anchorY * obj.renderable.sizeY;
+    obj.renderableBoundingBox.sizeX = obj.renderable.sizeX;
+    obj.renderableBoundingBox.sizeY = obj.renderable.sizeY;
+    obj.renderableBoundingBox.flipX = obj.renderable.flipX;
+    obj.renderableBoundingBox.flipY = obj.renderable.flipY;
+    obj.renderableBoundingBox.visible = debugLevel === 1;
   }
 }
 
 function releaseModules(obj) {
   mRenderer.removeRenderable(obj.renderable);
   mRenderer.removeRenderable(obj.renderableEnvelope);
+  mRenderer.removeRenderable(obj.renderableBoundingBox);
   mAudio.removePlayable(obj.playable);
 }
 

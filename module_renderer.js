@@ -14,25 +14,25 @@ let canvasScreen;
 let offscreenCanvas;
 let ctxScreen;
 let ctx;
-let debugLevel = 0; // 0 = desligado, 1 = mostra sprites e caixas, 2 = mostra apenas caixas
 
 let renderableId = 0;
 const renderables = [];
 
 export function newRenderableSprite(posX, posY, sizeX, sizeY, anchorX, anchorY, flipX, flipY, spriteSheet, index) {
-  const r = { id: renderableId++, type: RenderableTypes.SPRITE, posX, posY, sizeX, sizeY, anchorX, anchorY, flipX, flipY, spriteSheet, index };
+  sizeX = sizeY = SPRITE_SIZE;
+  const r = { id: renderableId++, visible: true, type: RenderableTypes.SPRITE, posX, posY, sizeX, sizeY, anchorX, anchorY, flipX, flipY, spriteSheet, index };
   renderables.push(r);
   return r;
 }
 
 export function newRenderableGeometry(posX, posY, sizeX, sizeY, flipX, flipY, form, style, filled) {
-  const r = { id: renderableId++, type: RenderableTypes.GEOMETRY, posX, posY, sizeX, sizeY, flipX, flipY, form, style, filled };
+  const r = { id: renderableId++, visible: true, type: RenderableTypes.GEOMETRY, posX, posY, sizeX, sizeY, flipX, flipY, form, style, filled };
   renderables.push(r);
   return r;
 }
 
 export function newRenderableText(posX, posY, text, align, style, font) {
-  const r = { id: renderableId++, type: RenderableTypes.TEXT, posX, posY, text, align, style, font };
+  const r = { id: renderableId++, visible: true, type: RenderableTypes.TEXT, posX, posY, text, align, style, font };
   renderables.push(r);
   return r;
 }
@@ -67,16 +67,18 @@ export function render(time) {
   clearScreen();
 
   renderables.forEach((r) => {
-    switch (r.type) {
-      case RenderableTypes.SPRITE:
-        renderSprite(r);
-        break;
-      case RenderableTypes.GEOMETRY:
-        renderGeometry(r);
-        break;
-      case RenderableTypes.TEXT:
-        renderText(r);
-        break;
+    if (r.visible) {
+      switch (r.type) {
+        case RenderableTypes.SPRITE:
+          renderSprite(r);
+          break;
+        case RenderableTypes.GEOMETRY:
+          renderGeometry(r);
+          break;
+        case RenderableTypes.TEXT:
+          renderText(r);
+          break;
+      }
     }
   });
 
@@ -99,14 +101,6 @@ export function render(time) {
   ctxScreen.drawImage(offscreenCanvas.transferToImageBitmap(), 0, 0);
 }
 
-export function getDebugLevel() {
-  return debugLevel;
-}
-
-export function setDebugLevel(level) {
-  debugLevel = level >= 0 && level <= 2 ? level : 0;
-}
-
 export function clearScreen() {
   ctx.fillStyle = "rgb(50, 50, 50)";
   ctx.fillRect(0, 0, 320, 240);
@@ -123,21 +117,8 @@ export function renderSprite(r) {
   ctx.save();
   ctx.translate(r.posX - r.anchorX * SX * flipX, r.posY - r.anchorY * SY * flipY);
   ctx.scale(flipX, flipY);
-
-  if (debugLevel <= 1) {
-    ctx.drawImage(r.spriteSheet, ix * SX, iy * SY, SX, SY, 0, 0, SX, SY);
-  }
-  if (debugLevel >= 1) {
-    ctx.strokeStyle = "rgba(20, 20, 20, 1)";
-    ctx.strokeRect(0, 0, SPRITE_SIZE, SPRITE_SIZE);
-  }
-
+  ctx.drawImage(r.spriteSheet, ix * SX, iy * SY, SX, SY, 0, 0, SX, SY);
   ctx.restore();
-
-  if (debugLevel >= 1) {
-    ctx.fillStyle = "yellow";
-    ctx.fillRect(r.posX, r.posY, 1, 1);
-  }
 }
 
 export function renderGeometry(r) {
