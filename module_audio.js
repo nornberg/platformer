@@ -54,9 +54,13 @@ export async function setAudioSheet(sheetId, arrayBuffer) {
   audioSheets[sheetId] = buffer;
 }
 
-export async function setTrack(trackId, arrayBuffer) {
-  const buffer = await audioCtx.decodeAudioData(arrayBuffer);
-  audioTracks[trackId] = buffer;
+export async function setTrack(trackId, arrayBuffer, loop = true) {
+  audioTracks[trackId] = {
+    buffer: await audioCtx.decodeAudioData(arrayBuffer),
+    playing: false,
+    source: null,
+    loop,
+  };
 }
 
 export function setEffect(effectId, audioSheetId, start, end) {
@@ -81,15 +85,30 @@ export function playEffect(effectId) {
   }
 }
 
-export function playTrack(trackId, loop) {
-  const source = audioCtx.createBufferSource();
-  source.buffer = audioSheets[trackId];
-  source.loop = loop;
-  if (audioOffset === null) {
-    source.start();
-    audioOffset = audioCtx.currentTime;
-  } else {
-    source.start(0, audioCtx.currentTime - audioOffset);
+export function playTrack(trackId) {
+  const track = audioTracks[trackId];
+  if (!track.playing) {
+    track.playing = true;
+    const source = audioCtx.createBufferSource();
+    source.buffer = track.buffer;
+    source.connect(audioCtx.destination);
+    source.loop = track.loop;
+    if (audioOffset === null) {
+      source.start();
+      audioOffset = audioCtx.currentTime;
+    } else {
+      source.start(0, audioCtx.currentTime - audioOffset);
+    }
+    track.source = source;
+  }
+}
+
+export function stopTrack(trackId) {
+  const track = audioTracks[trackId];
+  if (track.playing) {
+    track.playing = false;
+    track.source.stop();
+    track.source = null;
   }
 }
 

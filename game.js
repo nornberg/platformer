@@ -262,9 +262,15 @@ async function setup() {
   platforms.forEach((p) => {
     p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray");
   });
+
+  mAudio.playTrack(AudioIds.TRACK_DRUMS);
+  mAudio.playTrack(AudioIds.TRACK_GUITAR);
 }
 
 function cleanup() {
+  mAudio.stopTrack(AudioIds.TRACK_DRUMS);
+  mAudio.stopTrack(AudioIds.TRACK_GUITAR);
+
   document.getElementById("screen").style.display = "none";
   document.getElementById("playMessage").style.display = "none";
   document.getElementById("endMessage").style.display = "unset";
@@ -322,6 +328,7 @@ function update(time) {
   }
 
   if (objects.length === 1 && objects[0].name === "player") {
+    mAudio.stopTrack(AudioIds.TRACK_GUITAR);
     objects[0].next.action = Actions.WIN;
     objects[0].body.dir = 1;
     objects[0].body.xSpeed = 0;
