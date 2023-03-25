@@ -177,6 +177,7 @@ function newProjectileBall(x, y, dir) {
     playable: mAudio.newPlayableEffect(),
     next: {},
     power: 1,
+    renderableEnvelope: mRenderer.newRenderableGeometry(x, y, 10, 10, false, false, "rect", "white", false),
   };
   objects.push(projectile);
   return projectile;
@@ -187,13 +188,14 @@ function newCharacterMegaman(name, x, y, xSpeed, dir) {
     name,
     active: true,
     type: ObjectTypes.CHARACTER,
-    body: mPhysics.newPhysicsBody(x, y, 24, 40, xSpeed, 8, dir, 0, 0, 0.3, 0.3),
+    body: mPhysics.newPhysicsBody(x, y, 24, 40, xSpeed, 8, dir, 0, 0, 0.3, 0.3, false),
     animation: newAnimationData(),
     renderable: mRenderer.newRenderableSprite(x, y, 24, 40, 0.5, 1, false, false, fileSpriteSheet, 0),
     playable: mAudio.newPlayableEffect(),
     next: {},
     energy: 3,
     lastStepTime: 0,
+    renderableEnvelope: mRenderer.newRenderableGeometry(x, y, 24, 40, false, false, "rect", "white", false),
   };
   objects.push(character);
   return character;
@@ -415,7 +417,7 @@ function update(time) {
           break;
       }
 
-      const yPrev = obj.body.y;
+      const yPrev = mPhysics.calcEnvelope(obj.body).y2;
 
       if (obj.body.xAccel > 0) {
         obj.body.xSpeed += obj.body.xAccel;
@@ -470,10 +472,18 @@ function updateModules(obj) {
     obj.renderable.flipX = obj.body.dir < 0;
     obj.renderable.index = obj.animation.currFrame;
   }
+  if (obj.renderableEnvelope) {
+    const e = mPhysics.calcEnvelope(obj.body);
+    obj.renderableEnvelope.posX = e.x1;
+    obj.renderableEnvelope.posY = e.y1;
+    obj.renderableEnvelope.sizeX = e.x2 - e.x1;
+    obj.renderableEnvelope.sizeY = e.y2 - e.y1;
+  }
 }
 
 function releaseModules(obj) {
   mRenderer.removeRenderable(obj.renderable);
+  mRenderer.removeRenderable(obj.renderableEnvelope);
   mAudio.removePlayable(obj.playable);
 }
 

@@ -7,8 +7,8 @@ export function setPlatforms(newPlatforms) {
   platforms = newPlatforms;
 }
 
-export function newPhysicsBody(x, y, width, height, xMaxSpeed, yMaxSpeed, dir, xAccel = 0, yAccel = 0, xDecel = 0, yDecel = 0) {
-  const body = { dir, floored: false, x, y, width, height, xMaxSpeed, yMaxSpeed, xSpeed: 0, ySpeed: 0, xAccel, yAccel, xDecel, yDecel };
+export function newPhysicsBody(x, y, width, height, xMaxSpeed, yMaxSpeed, dir, xAccel = 0, yAccel = 0, xDecel = 0, yDecel = 0, center = true) {
+  const body = { dir, floored: false, x, y, width, height, xMaxSpeed, yMaxSpeed, xSpeed: 0, ySpeed: 0, xAccel, yAccel, xDecel, yDecel, center };
   bodies.push(body);
   return body;
 }
@@ -16,16 +16,15 @@ export function newPhysicsBody(x, y, width, height, xMaxSpeed, yMaxSpeed, dir, x
 export async function init() {}
 
 export function collision(body1, body2) {
-  const e1 = envelope(body1);
-  const e2 = envelope(body2);
+  const e1 = calcEnvelope(body1);
+  const e2 = calcEnvelope(body2);
   return e1.x2 > e2.x1 && e1.x1 < e2.x2 && e1.y2 > e2.y1 && e1.y1 < e2.y2;
 }
 
 export function checkFloor(body, yPrev) {
-  const xBodyStart = body.x - body.width / 2;
-  const xBodyEnd = body.x + body.width / 2;
+  const e = calcEnvelope(body);
   const floors = platforms.filter((p) => {
-    const check = xBodyEnd > p.start && xBodyStart < p.end && body.y >= p.height && yPrev <= p.height;
+    const check = e.x2 > p.start && e.x1 < p.end && e.y2 >= p.height && yPrev <= p.height;
     return check;
   });
 
@@ -37,8 +36,8 @@ export function checkFloor(body, yPrev) {
   body.floored = body.floor !== null;
 }
 
-export function envelope(body, base = false) {
-  if (base)
+export function calcEnvelope(body) {
+  if (!body.center)
     return {
       x1: body.x - body.width / 2,
       y1: body.y - body.height,
