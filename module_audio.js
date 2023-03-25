@@ -66,17 +66,19 @@ export function setEffect(effectId, audioSheetId, start, end) {
 
 export function playEffect(effectId) {
   const effect = audioEffects[effectId];
-  effect.playing = true;
-  console.log("EFFECT START PLAYING", effect.id);
-  const source = audioCtx.createBufferSource();
-  source.buffer = audioSheets[effect.audioSheetId];
-  source.connect(audioCtx.destination);
-  source.start(0, effect.start);
-  source.stop(audioCtx.currentTime + effect.end - effect.start);
-  source.onended = () => {
-    console.log("EFFECT END PLAYING", effect.id);
-    effect.playing = false;
-  };
+  if (effect.start !== effect.end) {
+    effect.playing = true;
+    console.log("EFFECT START PLAYING", effect.id);
+    const source = audioCtx.createBufferSource();
+    source.buffer = audioSheets[effect.audioSheetId];
+    source.connect(audioCtx.destination);
+    source.start(0, effect.start);
+    source.stop(audioCtx.currentTime + effect.end - effect.start);
+    source.onended = () => {
+      console.log("EFFECT END PLAYING", effect.id);
+      effect.playing = false;
+    };
+  }
 }
 
 export function playTrack(trackId, loop) {

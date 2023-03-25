@@ -58,8 +58,9 @@ const AudioIds = {
   TRACK_DRUMS: "track_drums",
   EFFECT_CHAR_STEP: "effect_char_step",
   EFFECT_CHAR_JUMP: "effect_char_jump",
-  EFFECT_CHAR_SHOT: "effect_char_shot",
-  EFFECT_CHAT_HIT: "effect_char_hit",
+  EFFECT_CHAR_HIT: "effect_char_hit",
+  EFFECT_BALL_SHOT: "effect_ball_shot",
+  EFFECT_BALL_HIT: "effect_ball_hit",
 };
 
 const characterAnimations = [
@@ -98,7 +99,7 @@ const characterAnimations = [
   {
     state: States.NORMAL,
     action: Actions.DEATH,
-    frames: [36, , 36, , 36, , 36, , 36, , 36],
+    frames: [{ frame: 36, audioEffect: AudioIds.EFFECT_CHAR_HIT }, , 36, , 36, , 36, , 36, , 36],
     delay: 16,
   },
   {
@@ -117,7 +118,7 @@ const characterAnimations = [
   {
     state: States.SHOOTING,
     action: Actions.WALK,
-    frames: [{ frame: 20 /*audioEffect: AudioIds.EFFECT_CHAR_STEP*/ }, 21, 22, { frame: 23 /*audioEffect: AudioIds.EFFECT_CHAR_STEP*/ }, 24, 25],
+    frames: [{ frame: 20, audioEffect: AudioIds.EFFECT_CHAR_STEP }, 21, 22, { frame: 23, audioEffect: AudioIds.EFFECT_CHAR_STEP }, 24, 25],
     delay: 120,
   },
   {
@@ -135,7 +136,7 @@ const characterAnimations = [
   {
     state: States.NORMAL,
     action: Actions.BALL_FIRED,
-    frames: [{ frame: 61, audioEffect: AudioIds.EFFECT_CHAR_SHOT }, 60],
+    frames: [{ frame: 61, audioEffect: AudioIds.EFFECT_BALL_SHOT }, 60],
     delay: 50,
   },
   {
@@ -147,7 +148,7 @@ const characterAnimations = [
   {
     state: States.NORMAL,
     action: Actions.BALL_HIT,
-    frames: [60, 61, 62, 63, 64, 65, 66],
+    frames: [{ frame: 60, audioEffect: AudioIds.EFFECT_BALL_HIT }, 61, 62, 63, 64, 65, 66],
     delay: 20,
   },
 ];
@@ -218,6 +219,7 @@ function newProjectile(template, x, y, dir) {
     name: template.name + projectile_id++,
     body: { ...template.body, x, y, dir },
     renderable: mRenderer.newRenderableSprite(x, y, template.body.width, template.body.height, 0.5, 0.5, false, false, fileSpriteSheet, 0),
+    playable: mAudio.newPlayableEffect(),
   };
   objects.push(projectile);
   return projectile;
@@ -268,9 +270,12 @@ async function setup() {
   await mAudio.setAudioSheet(AudioIds.CHAR_AUDIO_SHEET, fileAudioSheet);
   await mAudio.setTrack(AudioIds.TRACK_GUITAR, fileTrackGuitar);
   await mAudio.setTrack(AudioIds.TRACK_DRUMS, fileTrackDrums);
-  await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 6, 6.1);
-  await mAudio.setEffect(AudioIds.EFFECT_CHAR_JUMP, AudioIds.CHAR_AUDIO_SHEET, 12, 13);
-  await mAudio.setEffect(AudioIds.EFFECT_CHAR_SHOT, AudioIds.CHAR_AUDIO_SHEET, 14, 15);
+  //await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 6, 6.1);
+  await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 0, 0);
+  await mAudio.setEffect(AudioIds.EFFECT_CHAR_JUMP, AudioIds.CHAR_AUDIO_SHEET, 12.3, 13);
+  await mAudio.setEffect(AudioIds.EFFECT_CHAR_HIT, AudioIds.CHAR_AUDIO_SHEET, 0.1, 1);
+  await mAudio.setEffect(AudioIds.EFFECT_BALL_SHOT, AudioIds.CHAR_AUDIO_SHEET, 18.15, 18.2);
+  await mAudio.setEffect(AudioIds.EFFECT_BALL_HIT, AudioIds.CHAR_AUDIO_SHEET, 14.2, 15);
 
   objects.forEach((obj) => {
     obj.renderable = mRenderer.newRenderableSprite(0, 0, obj.body.width, obj.body.height, 0.5, 1, false, false, fileSpriteSheet, 0);
@@ -281,6 +286,8 @@ async function setup() {
   platforms.forEach((p) => {
     p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray");
   });
+
+  mAudio.playEffect(AudioIds.EFFECT_CHAR_STEP);
 }
 
 function cleanup() {
@@ -549,6 +556,10 @@ function keyUpHandler(e) {
 }
 
 function playAnimation(character, time) {
+  if (!character.active) {
+    return;
+  }
+
   if (character.animation.action !== character.next.action || character.animation.state !== character.next.state) {
     if (!character.next.action) {
       character.next.action = character.animation.action;
@@ -565,12 +576,15 @@ function playAnimation(character, time) {
   const frameObj = character.animation.frames[character.animation.frameIndex];
 
   if (frameObj !== null && typeof frameObj === "object") {
-    if (character.animation.currFrame !== frameObj.frame) {
+    if (character.animation.currFrame !== frameObj.frame && frameObj.audioEffect) {
       character.animation.currAudioEffect = frameObj.audioEffect;
+    } else {
+      character.animation.currAudioEffect = null;
     }
     character.animation.currFrame = frameObj.frame;
     character.animation.currDelay = frameObj.delay ?? character.animation.delay;
   } else {
+    character.animation.currAudioEffect = null;
     character.animation.currFrame = frameObj;
     character.animation.currDelay = character.animation.delay;
   }
