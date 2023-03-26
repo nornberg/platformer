@@ -3,6 +3,7 @@
 import * as mAudio from "./module_audio.js";
 import * as mRenderer from "./module_renderer.js";
 import * as mPhysics from "./module_physics.js";
+import * as mInput from "./module_input.js";
 
 document.getElementById("preloadingMessage").style.display = "none";
 document.getElementById("startMessage").style.display = "unset";
@@ -17,11 +18,6 @@ let fileAudioSheet;
 let fileTrackGuitar;
 let fileTrackDrums;
 
-let input_axis_hor = 0;
-let input_axis_ver = 0;
-let input_button_fire = 0;
-let input_button_jump = 0;
-let input_button_extra_1 = 0;
 let endTime;
 let animationFrameId;
 let debugLevel = 1;
@@ -40,8 +36,10 @@ const frameControl = {
 };
 
 const inputControl = {
-  xAxis: 0,
-  yAxis: 0,
+  xAxisL: 0,
+  yAxisL: 0,
+  xAxisR: 0,
+  yAxisR: 0,
   jump: 0,
   shot: 0,
   extra1: 0,
@@ -255,9 +253,22 @@ async function setup() {
   await mRenderer.init("screen", 320, 240);
   await mAudio.init();
   await mPhysics.init();
+  await mInput.init();
 
-  document.addEventListener("keydown", keyDownHandler, false);
-  document.addEventListener("keyup", keyUpHandler, false);
+  mInput.mapAxis("H", 65, 68, mInput.AXES.lsh); // teclas A D
+  mInput.mapAxis("V", 83, 87, mInput.AXES.lsv); // teclas S W
+  mInput.mapAxis("HR", 37, 39, mInput.AXES.rsh); // setas LEFT RIGHT
+  mInput.mapAxis("VR", 40, 38, mInput.AXES.rsv); // setas DOWN UP
+  mInput.mapButton("X", 77, mInput.BUTTONS.x); // tecla M
+  mInput.mapButton("A", 78, mInput.BUTTONS.a); // tecla N
+  mInput.mapButton("B", 188, mInput.BUTTONS.b); // tecla .
+  mInput.mapButton("Y", 66, mInput.BUTTONS.y); // tecla B
+  mInput.mapButton("LB", 45, mInput.BUTTONS.lb); // INSERT
+  mInput.mapButton("RB", 33, mInput.BUTTONS.rb); // PAGE UP
+  mInput.mapButton("LT", 46, mInput.BUTTONS.lt); // DELETE
+  mInput.mapButton("RT", 34, mInput.BUTTONS.rt); // PAGE DOWN
+  mInput.mapButton("SELECT", 8, mInput.BUTTONS.select); // BACKSPACE
+  mInput.mapButton("START", 13, mInput.BUTTONS.start); // ENTER
 
   await mAudio.setAudioSheet(AudioIds.CHAR_AUDIO_SHEET, fileAudioSheet);
   await mAudio.setTrack(AudioIds.TRACK_GUITAR, fileTrackGuitar);
@@ -283,11 +294,13 @@ async function setup() {
 
   frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", DEBUG_STYLE_INFO, "16px sans-serif");
   frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", DEBUG_STYLE_INFO, "16px sans-serif");
-  inputControl.extra1 = mRenderer.newRenderableText(100, 0, "1", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.jump = mRenderer.newRenderableText(110, 0, "J", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.shot = mRenderer.newRenderableText(120, 0, "S", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.xAxis = mRenderer.newRenderableText(130, 0, "X", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.yAxis = mRenderer.newRenderableText(140, 0, "Y", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.extra1 = mRenderer.newRenderableText(90, 0, "LB", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.jump = mRenderer.newRenderableText(110, 0, "X", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.shot = mRenderer.newRenderableText(120, 0, "A", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.xAxisL = mRenderer.newRenderableText(130, 0, "H", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.yAxisL = mRenderer.newRenderableText(140, 0, "V", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.xAxisR = mRenderer.newRenderableText(160, 0, "HR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.yAxisR = mRenderer.newRenderableText(180, 0, "VR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
 }
 
 function cleanup() {
@@ -307,9 +320,9 @@ function cleanup() {
 
 function selectDebugStyle(key, axis) {
   if (axis) {
-    return key === 0 ? DEBUG_STYLE_RELEASED : key === 1 ? DEBUG_STYLE_AXIS_POS : DEBUG_STYLE_AXIS_NEG;
+    return mInput.getAxis(key) === 0 ? DEBUG_STYLE_RELEASED : mInput.getAxis(key) === 1 ? DEBUG_STYLE_AXIS_POS : DEBUG_STYLE_AXIS_NEG;
   } else {
-    return key === 0 ? DEBUG_STYLE_RELEASED : key === 1 ? DEBUG_STYLE_PRESSED : DEBUG_STYLE_HOLD;
+    return mInput.isJustPressed(key) ? DEBUG_STYLE_PRESSED : mInput.isPressed(key) ? DEBUG_STYLE_HOLD : DEBUG_STYLE_RELEASED;
   }
 }
 
@@ -319,7 +332,7 @@ function updateDebugInfo(time) {
   }
   const currTime = time - frameControl.startTime;
 
-  if (input_button_extra_1 === 1) {
+  if (mInput.isJustPressed("LB")) {
     debugLevel = 1 - debugLevel;
   }
   frameControl.frameCount++;
@@ -329,19 +342,23 @@ function updateDebugInfo(time) {
     frameControl.textFps.text = `${frameControl.fps} fps`;
   }
   frameControl.textSec.text = `${(currTime / 1000).toFixed(1)} s`;
-  inputControl.extra1.style = selectDebugStyle(input_button_extra_1);
-  inputControl.jump.style = selectDebugStyle(input_button_jump);
-  inputControl.shot.style = selectDebugStyle(input_button_fire);
-  inputControl.xAxis.style = selectDebugStyle(input_axis_hor, true);
-  inputControl.yAxis.style = selectDebugStyle(input_axis_ver, true);
+  inputControl.extra1.style = selectDebugStyle("LB");
+  inputControl.jump.style = selectDebugStyle("A");
+  inputControl.shot.style = selectDebugStyle("X");
+  inputControl.xAxisL.style = selectDebugStyle("H", true);
+  inputControl.yAxisL.style = selectDebugStyle("V", true);
+  inputControl.xAxisR.style = selectDebugStyle("HR", true);
+  inputControl.yAxisR.style = selectDebugStyle("VR", true);
 
   frameControl.textSec.visible = debugLevel === 1;
   frameControl.textFps.visible = debugLevel === 1;
   inputControl.extra1.visible = debugLevel === 1;
   inputControl.jump.visible = debugLevel === 1;
   inputControl.shot.visible = debugLevel === 1;
-  inputControl.xAxis.visible = debugLevel === 1;
-  inputControl.yAxis.visible = debugLevel === 1;
+  inputControl.xAxisL.visible = debugLevel === 1;
+  inputControl.yAxisL.visible = debugLevel === 1;
+  inputControl.xAxisR.visible = debugLevel === 1;
+  inputControl.yAxisR.visible = debugLevel === 1;
 
   return currTime;
 }
@@ -354,10 +371,10 @@ async function frame(time) {
     cleanup();
   } else {
     animationFrameId = requestAnimationFrame(frame);
+    mInput.update();
     update(currTime);
     mRenderer.render(currTime);
     mAudio.play(currTime);
-    input(currTime);
   }
 }
 
@@ -382,14 +399,14 @@ function update(time) {
     objects[0].body.xDecel = 0;
     if (!endTime) endTime = time;
   } else if (objects[0].next.action !== Actions.WIN) {
-    if (input_axis_hor !== 0) {
-      objects[0].body.dir = input_axis_hor;
+    if (mInput.getAxis("H") !== 0) {
+      objects[0].body.dir = mInput.getAxis("H");
       objects[0].body.xAccel = 0.1;
     } else {
       objects[0].body.xAccel = 0;
     }
-    objects[0].next.fire = input_button_fire;
-    if (input_button_jump === 1 && objects[0].body.floored) {
+    objects[0].next.fire = mInput.isJustPressed("X") ? 1 : mInput.isPressed("X") ? -1 : 0;
+    if (mInput.isJustPressed("A") && objects[0].body.floored) {
       console.log("JUMP");
       objects[0].body.yAccel = 1.7;
     }
@@ -545,94 +562,6 @@ function releaseModules(obj) {
   mAudio.removePlayable(obj.playable);
 }
 
-function input(time) {
-  if (input_button_fire === 1) {
-    input_button_fire = -1;
-  }
-  if (input_button_jump === 1) {
-    input_button_jump = -1;
-  }
-  if (input_button_extra_1 === 1) {
-    input_button_extra_1 = -1;
-  }
-}
-
-function keyDownHandler(e) {
-  if ("code" in e) {
-    switch (e.code) {
-      case "Unidentified":
-        break;
-      case "ArrowRight":
-      case "Right": // IE <= 9 and FF <= 36
-      case "KeyD":
-        input_axis_hor = 1;
-        return;
-      case "ArrowLeft":
-      case "Left": // IE <= 9 and FF <= 36
-      case "KeyA":
-        input_axis_hor = -1;
-        return;
-      case "ArrowUp":
-      case "Up": // IE <= 9 and FF <= 36
-      case "KeyW":
-        input_axis_ver = 1;
-        return;
-      case "ArrowDown":
-      case "Down": // IE <= 9 and FF <= 36
-      case "KeyS":
-        input_axis_ver = -1;
-        return;
-      case "KeyM":
-        if (!input_button_fire) input_button_fire = 1;
-        return;
-      case "KeyN":
-        if (!input_button_jump) input_button_jump = 1;
-        return;
-      case "Digit1":
-        if (!input_button_extra_1) input_button_extra_1 = 1;
-        return;
-      default:
-        return;
-    }
-  }
-}
-
-function keyUpHandler(e) {
-  if ("code" in e) {
-    switch (e.code) {
-      case "Unidentified":
-        break;
-      case "ArrowRight":
-      case "Right": // IE <= 9 and FF <= 36
-      case "KeyD":
-      case "ArrowLeft":
-      case "Left": // IE <= 9 and FF <= 36
-      case "KeyA":
-        input_axis_hor = 0;
-        return;
-      case "ArrowUp":
-      case "Up": // IE <= 9 and FF <= 36
-      case "KeyW":
-      case "ArrowDown":
-      case "Down": // IE <= 9 and FF <= 36
-      case "KeyS":
-        input_axis_ver = 0;
-        return;
-      case "KeyM":
-        input_button_fire = 0;
-        return;
-      case "KeyN":
-        input_button_jump = 0;
-        return;
-      case "Digit1":
-        input_button_extra_1 = 0;
-        return;
-      default:
-        return;
-    }
-  }
-}
-
 function playAnimation(character, time) {
   if (!character.active) {
     return;
@@ -678,8 +607,4 @@ function playAnimation(character, time) {
 
 function isSameAction(anim1, anim2) {
   return anim1 && anim2 && anim1.action === anim2.action && anim1.frames?.length === anim2.frames?.length;
-}
-
-function deepClone(obj) {
-  return JSON.parse(JSON.stringify(obj));
 }
