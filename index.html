@@ -47,12 +47,16 @@
         margin-top: 10px;
       }
 
+      #preloadingMessage {
+        display: block;
+      }
+
       #loadingMessage {
         display: none;
       }
 
       #startMessage {
-        display: block;
+        display: none;
       }
 
       #endMessage {
@@ -66,6 +70,7 @@
   </head>
 
   <body id="container">
+    <div id="preloadingMessage" class="message">carregando módulos...</div>
     <div id="startMessage" class="message">
       clique ou tecle para iniciar
       <div class="subMessage">
@@ -75,11 +80,11 @@
         1 - modo debug
       </div>
     </div>
-    <div id="loadingMessage" class="message">carregando...</div>
+    <div id="loadingMessage" class="message">carregando conteúdo...</div>
     <div id="endMessage" class="message">clique ou tecle para recarregar</div>
     <canvas id="screen" width="960" height="720"></canvas>
     <div id="playMessage" class="subMessage">ASDF | N | M | 1</div>
   </body>
 
-  <script src="game.js"></script>
+  <script type="module" src="game.js"></script>
 </html>

@@ -1,14 +1,16 @@
 "use strict";
 
+import * as mAudio from "./module_audio.js";
+import * as mRenderer from "./module_renderer.js";
+import * as mPhysics from "./module_physics.js";
+
+document.getElementById("preloadingMessage").style.display = "none";
+document.getElementById("startMessage").style.display = "unset";
 console.log("WAIT USER ACTION");
 onkeydown = onclick = () => {
   onkeydown = onclick = undefined;
   main();
 };
-
-let mRenderer;
-let mAudio;
-let mPhysics;
 
 let fileSpriteSheet;
 let fileAudioSheet;
@@ -240,14 +242,13 @@ async function main() {
 }
 
 async function load() {
-  mRenderer = await import("/module_renderer.js");
-  mAudio = await import("/module_audio.js");
-  mPhysics = await import("/module_physics.js");
-
-  fileSpriteSheet = await mRenderer.loadImage("sheet_megaman.png");
-  fileAudioSheet = await mAudio.loadAudio("audio-sheet_countdown.mp3");
-  fileTrackGuitar = await mAudio.loadAudio("multi-track_leadguitar.mp3");
-  fileTrackDrums = await mAudio.loadAudio("multi-track_drums.mp3");
+  const assets = [
+    mRenderer.loadImage("sheet_megaman.png").then((data) => (fileSpriteSheet = data)),
+    mAudio.loadAudio("audio-sheet_countdown.mp3").then((data) => (fileAudioSheet = data)),
+    mAudio.loadAudio("multi-track_leadguitar.mp3").then((data) => (fileTrackGuitar = data)),
+    mAudio.loadAudio("multi-track_drums.mp3").then((data) => (fileTrackDrums = data)),
+  ];
+  await Promise.all(assets);
 }
 
 async function setup() {
