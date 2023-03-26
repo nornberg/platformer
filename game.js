@@ -4,6 +4,7 @@ import * as mAudio from "./module_audio.js";
 import * as mRenderer from "./module_renderer.js";
 import * as mPhysics from "./module_physics.js";
 import * as mInput from "./module_input.js";
+import * as mAnim from "./module_animation.js";
 
 document.getElementById("preloadingMessage").style.display = "none";
 document.getElementById("startMessage").style.display = "unset";
@@ -19,7 +20,7 @@ let fileTrackGuitar;
 let fileTrackDrums;
 
 let endTime;
-let animationFrameId;
+let requestAnimationFrameId;
 let debugLevel = 1;
 
 const DEBUG_STYLE_RELEASED = "gray";
@@ -79,96 +80,6 @@ const AudioIds = {
   EFFECT_BALL_HIT: "effect_ball_hit",
 };
 
-const characterAnimations = [
-  {
-    state: States.NORMAL,
-    action: Actions.IDLE,
-    frames: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 3, 2],
-    delay: 50,
-  },
-  {
-    state: States.NORMAL,
-    action: Actions.WALK,
-    frames: [{ frame: 10, audioEffect: AudioIds.EFFECT_CHAR_STEP }, 11, 12, { frame: 13, audioEffect: AudioIds.EFFECT_CHAR_STEP }, 14, 15],
-    delay: 120,
-  },
-  {
-    state: States.NORMAL,
-    action: Actions.JUMP,
-    frames: [
-      { frame: 16, delay: 100, audioEffect: AudioIds.EFFECT_CHAR_JUMP },
-      { frame: 17, delay: 1000 },
-    ],
-  },
-  {
-    state: States.NORMAL,
-    action: Actions.FALL,
-    frames: [18],
-    delay: 1000,
-  },
-  {
-    state: States.NORMAL,
-    action: Actions.HIT,
-    frames: [30, 35],
-    delay: 30,
-  },
-  {
-    state: States.NORMAL,
-    action: Actions.DEATH,
-    frames: [{ frame: 36, audioEffect: AudioIds.EFFECT_CHAR_HIT }, , 36, , 36, , 36, , 36, , 36],
-    delay: 16,
-  },
-  {
-    state: States.NORMAL,
-    action: Actions.WIN,
-    frames: [8],
-    delay: 2000,
-  },
-
-  {
-    state: States.SHOOTING,
-    action: Actions.IDLE,
-    frames: [4],
-    delay: 100,
-  },
-  {
-    state: States.SHOOTING,
-    action: Actions.WALK,
-    frames: [{ frame: 20, audioEffect: AudioIds.EFFECT_CHAR_STEP }, 21, 22, { frame: 23, audioEffect: AudioIds.EFFECT_CHAR_STEP }, 24, 25],
-    delay: 120,
-  },
-  {
-    state: States.SHOOTING,
-    action: Actions.JUMP,
-    frames: [{ frame: 26, audioEffect: AudioIds.EFFECT_CHAR_JUMP }, 27, 27, 27, 27, 27, 27],
-    delay: 100,
-  },
-  {
-    state: States.SHOOTING,
-    action: Actions.FALL,
-    frames: [28],
-    delay: 1000,
-  },
-  {
-    state: States.NORMAL,
-    action: Actions.BALL_FIRED,
-    frames: [{ frame: 61, audioEffect: AudioIds.EFFECT_BALL_SHOT }, 60],
-    delay: 50,
-  },
-  {
-    state: States.NORMAL,
-    action: Actions.BALL_GOING,
-    frames: [37, 38],
-    delay: 100,
-  },
-  {
-    state: States.NORMAL,
-    action: Actions.BALL_HIT,
-    frames: [{ frame: 60, audioEffect: AudioIds.EFFECT_BALL_HIT }, 61, 62, 63, 64, 65, 66],
-    delay: 20,
-  },
-];
-
 const platforms = [
   { start: 0, end: 320, height: 235 },
   { start: 0, end: 150, height: 180 },
@@ -177,10 +88,6 @@ const platforms = [
 
 const objects = [];
 
-function newAnimationData(action, state, frameIndex, previousTime, moreAttr) {
-  return { action, state, frameIndex, previousTime, currFrame: 0, playing: true, ...moreAttr };
-}
-
 let projectile_id = 0;
 function newProjectileBall(x, y, dir) {
   const projectile = {
@@ -188,7 +95,7 @@ function newProjectileBall(x, y, dir) {
     active: true,
     type: ObjectTypes.PROJECTILE,
     body: mPhysics.newPhysicsBody(x, y, 10, 10, 5, 0, dir, 5, 0),
-    animation: newAnimationData(Actions.BALL_FIRED, States.NORMAL),
+    animation: mAnim.newAnimator(Actions.BALL_FIRED, States.NORMAL),
     renderable: mRenderer.newRenderableSprite(x, y, 10, 10, 0.5, 0.5, false, false, fileSpriteSheet, 0),
     playable: mAudio.newPlayableEffect(),
     next: {},
@@ -206,7 +113,7 @@ function newCharacterMegaman(name, x, y, xSpeed, dir) {
     active: true,
     type: ObjectTypes.CHARACTER,
     body: mPhysics.newPhysicsBody(x, y, 24, 40, xSpeed, 8, dir, 0, 0, 0.3, 0.3, false),
-    animation: newAnimationData(),
+    animation: mAnim.newAnimator(Actions.IDLE, States.NORMAL),
     renderable: mRenderer.newRenderableSprite(x, y, 24, 40, 0.5, 1, false, false, fileSpriteSheet, 0),
     playable: mAudio.newPlayableEffect(),
     next: {},
@@ -236,7 +143,7 @@ async function main() {
   console.log("START");
   //playTrack(track_guitar, true);
   //playTrack(track_drums, true);
-  animationFrameId = requestAnimationFrame(frame);
+  requestAnimationFrameId = requestAnimationFrame(frame);
 }
 
 async function load() {
@@ -254,6 +161,7 @@ async function setup() {
   await mAudio.init();
   await mPhysics.init();
   await mInput.init();
+  await mAnim.init();
 
   mInput.mapAxis("H", 65, 68, mInput.AXES.lsh); // teclas A D
   mInput.mapAxis("V", 83, 87, mInput.AXES.lsv); // teclas S W
@@ -274,11 +182,91 @@ async function setup() {
   await mAudio.setTrack(AudioIds.TRACK_GUITAR, fileTrackGuitar);
   await mAudio.setTrack(AudioIds.TRACK_DRUMS, fileTrackDrums);
   //await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 6, 6.1);
-  await mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 0, 0);
-  await mAudio.setEffect(AudioIds.EFFECT_CHAR_JUMP, AudioIds.CHAR_AUDIO_SHEET, 12.3, 13);
-  await mAudio.setEffect(AudioIds.EFFECT_CHAR_HIT, AudioIds.CHAR_AUDIO_SHEET, 0.1, 1);
-  await mAudio.setEffect(AudioIds.EFFECT_BALL_SHOT, AudioIds.CHAR_AUDIO_SHEET, 18.15, 18.2);
-  await mAudio.setEffect(AudioIds.EFFECT_BALL_HIT, AudioIds.CHAR_AUDIO_SHEET, 14.2, 15);
+  mAudio.setEffect(AudioIds.EFFECT_CHAR_STEP, AudioIds.CHAR_AUDIO_SHEET, 0, 0);
+  mAudio.setEffect(AudioIds.EFFECT_CHAR_JUMP, AudioIds.CHAR_AUDIO_SHEET, 12.3, 13);
+  mAudio.setEffect(AudioIds.EFFECT_CHAR_HIT, AudioIds.CHAR_AUDIO_SHEET, 0.1, 1);
+  mAudio.setEffect(AudioIds.EFFECT_BALL_SHOT, AudioIds.CHAR_AUDIO_SHEET, 18.15, 18.2);
+  mAudio.setEffect(AudioIds.EFFECT_BALL_HIT, AudioIds.CHAR_AUDIO_SHEET, 14.2, 15);
+
+  frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", DEBUG_STYLE_INFO, "16px sans-serif");
+  frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", DEBUG_STYLE_INFO, "16px sans-serif");
+  inputControl.extra1 = mRenderer.newRenderableText(90, 0, "LB", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.jump = mRenderer.newRenderableText(110, 0, "X", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.shot = mRenderer.newRenderableText(120, 0, "A", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.xAxisL = mRenderer.newRenderableText(130, 0, "H", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.yAxisL = mRenderer.newRenderableText(140, 0, "V", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.xAxisR = mRenderer.newRenderableText(160, 0, "HR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.yAxisR = mRenderer.newRenderableText(180, 0, "VR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+
+  let a = mAnim.setAnimation(Actions.IDLE);
+  mAnim.addFrame(a, States.NORMAL, 1, 3000);
+  mAnim.addFrame(a, States.NORMAL, 2, 30);
+  mAnim.addFrame(a, States.NORMAL, 3, 30);
+  mAnim.addFrame(a, States.NORMAL, 2, 30);
+  mAnim.addFrame(a, States.SHOOTING, 4, 3000);
+  mAnim.addFrame(a, States.SHOOTING, 4, 30);
+  mAnim.addFrame(a, States.SHOOTING, 4, 30);
+  mAnim.addFrame(a, States.SHOOTING, 4, 30);
+
+  a = mAnim.setAnimation(Actions.WALK);
+  mAnim.addFrame(a, States.NORMAL, 10, 120, AudioIds.EFFECT_CHAR_STEP);
+  mAnim.addFrame(a, States.NORMAL, 11, 120);
+  mAnim.addFrame(a, States.NORMAL, 12, 120);
+  mAnim.addFrame(a, States.NORMAL, 13, 120, AudioIds.EFFECT_CHAR_STEP);
+  mAnim.addFrame(a, States.NORMAL, 14, 120);
+  mAnim.addFrame(a, States.NORMAL, 15, 120);
+  mAnim.addFrame(a, States.SHOOTING, 20, 120, AudioIds.EFFECT_CHAR_STEP);
+  mAnim.addFrame(a, States.SHOOTING, 21, 120);
+  mAnim.addFrame(a, States.SHOOTING, 22, 120);
+  mAnim.addFrame(a, States.SHOOTING, 23, 120, AudioIds.EFFECT_CHAR_STEP);
+  mAnim.addFrame(a, States.SHOOTING, 24, 120);
+  mAnim.addFrame(a, States.SHOOTING, 25, 120);
+
+  a = mAnim.setAnimation(Actions.JUMP);
+  mAnim.addFrame(a, States.NORMAL, 16, 100, AudioIds.EFFECT_CHAR_JUMP);
+  mAnim.addFrame(a, States.NORMAL, 17, 1000);
+  mAnim.addFrame(a, States.SHOOTING, 26, 100, AudioIds.EFFECT_CHAR_JUMP);
+  mAnim.addFrame(a, States.SHOOTING, 27, 1000);
+
+  a = mAnim.setAnimation(Actions.FALL);
+  mAnim.addFrame(a, States.NORMAL, 18, 1000);
+  mAnim.addFrame(a, States.SHOOTING, 28, 1000);
+
+  a = mAnim.setAnimation(Actions.HIT);
+  mAnim.addFrame(a, States.NORMAL, 30, 30);
+  mAnim.addFrame(a, States.NORMAL, 35, 30);
+
+  a = mAnim.setAnimation(Actions.DEATH, 16);
+  mAnim.addFrame(a, States.NORMAL, 36, 16, AudioIds.EFFECT_CHAR_HIT);
+  mAnim.addFrame(a, States.NORMAL, null, 16);
+  mAnim.addFrame(a, States.NORMAL, 36, 16);
+  mAnim.addFrame(a, States.NORMAL, null, 16);
+  mAnim.addFrame(a, States.NORMAL, 36, 16);
+  mAnim.addFrame(a, States.NORMAL, null, 16);
+  mAnim.addFrame(a, States.NORMAL, 36, 16);
+  mAnim.addFrame(a, States.NORMAL, null, 16);
+  mAnim.addFrame(a, States.NORMAL, 36, 16);
+  mAnim.addFrame(a, States.NORMAL, null, 16);
+  mAnim.addFrame(a, States.NORMAL, 36, 16);
+
+  a = mAnim.setAnimation(Actions.WIN);
+  mAnim.addFrame(a, States.NORMAL, 8, 2000);
+
+  a = mAnim.setAnimation(Actions.BALL_FIRED);
+  mAnim.addFrame(a, States.NORMAL, 61, 50, AudioIds.EFFECT_BALL_SHOT);
+
+  a = mAnim.setAnimation(Actions.BALL_GOING);
+  mAnim.addFrame(a, States.NORMAL, 37, 100);
+  mAnim.addFrame(a, States.NORMAL, 38, 100);
+
+  a = mAnim.setAnimation(Actions.BALL_HIT);
+  mAnim.addFrame(a, States.NORMAL, 60, 20, AudioIds.EFFECT_BALL_HIT);
+  mAnim.addFrame(a, States.NORMAL, 61, 100);
+  mAnim.addFrame(a, States.NORMAL, 62, 100);
+  mAnim.addFrame(a, States.NORMAL, 63, 100);
+  mAnim.addFrame(a, States.NORMAL, 64, 100);
+  mAnim.addFrame(a, States.NORMAL, 65, 100);
+  mAnim.addFrame(a, States.NORMAL, 66, 100);
 
   newCharacterMegaman("player", 180, 50, 3, 1);
   newCharacterMegaman("enemy_01", 20, 180, 2, 1);
@@ -291,16 +279,6 @@ async function setup() {
 
   //mAudio.playTrack(AudioIds.TRACK_DRUMS);
   //mAudio.playTrack(AudioIds.TRACK_GUITAR);
-
-  frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", DEBUG_STYLE_INFO, "16px sans-serif");
-  frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", DEBUG_STYLE_INFO, "16px sans-serif");
-  inputControl.extra1 = mRenderer.newRenderableText(90, 0, "LB", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.jump = mRenderer.newRenderableText(110, 0, "X", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.shot = mRenderer.newRenderableText(120, 0, "A", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.xAxisL = mRenderer.newRenderableText(130, 0, "H", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.yAxisL = mRenderer.newRenderableText(140, 0, "V", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.xAxisR = mRenderer.newRenderableText(160, 0, "HR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.yAxisR = mRenderer.newRenderableText(180, 0, "VR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
 }
 
 function cleanup() {
@@ -367,12 +345,14 @@ async function frame(time) {
   const currTime = updateDebugInfo(time);
   if (currTime - endTime > 3000) {
     console.log("END");
-    cancelAnimationFrame(animationFrameId);
+    cancelAnimationFrame(requestAnimationFrameId);
     cleanup();
   } else {
-    animationFrameId = requestAnimationFrame(frame);
+    requestAnimationFrameId = requestAnimationFrame(frame);
     mInput.update();
     update(currTime);
+    mAnim.update(time);
+    objects.forEach(updateModules);
     mRenderer.render(currTime);
     mAudio.play(currTime);
   }
@@ -520,8 +500,6 @@ function update(time) {
         obj.body.y = obj.body.floor.height;
       }
     }
-    playAnimation(obj, time);
-    updateModules(obj);
   });
 }
 
@@ -560,51 +538,4 @@ function releaseModules(obj) {
   mRenderer.removeRenderable(obj.renderableEnvelope);
   mRenderer.removeRenderable(obj.renderableBoundingBox);
   mAudio.removePlayable(obj.playable);
-}
-
-function playAnimation(character, time) {
-  if (!character.active) {
-    return;
-  }
-
-  if (character.animation.action !== character.next.action || character.animation.state !== character.next.state) {
-    if (!character.next.action) {
-      character.next.action = character.animation.action;
-      character.next.state = character.animation.state;
-    }
-    const newAnim = characterAnimations.find((a) => a.action === character.next.action && a.state === character.next.state) ?? characterAnimations.find((a) => a.action === character.next.action);
-    if (isSameAction(newAnim, character.animation)) {
-      character.animation = newAnimationData(null, character.animation.state, character.animation.frameIndex, character.animation.previousTime, newAnim);
-    } else {
-      character.animation = newAnimationData(null, character.animation.state, 0, 0, newAnim);
-    }
-  }
-
-  const frameObj = character.animation.frames[character.animation.frameIndex];
-
-  if (frameObj !== null && typeof frameObj === "object") {
-    if (character.animation.currFrame !== frameObj.frame && frameObj.audioEffect) {
-      character.animation.currAudioEffect = frameObj.audioEffect;
-    } else {
-      character.animation.currAudioEffect = null;
-    }
-    character.animation.currFrame = frameObj.frame;
-    character.animation.currDelay = frameObj.delay ?? character.animation.delay;
-  } else {
-    character.animation.currAudioEffect = null;
-    character.animation.currFrame = frameObj;
-    character.animation.currDelay = character.animation.delay;
-  }
-
-  if (time - character.animation.previousTime > character.animation.currDelay) {
-    character.animation.previousTime = time;
-    if (++character.animation.frameIndex === character.animation.frames.length) {
-      character.animation.playing = false;
-      character.animation.frameIndex = 0;
-    }
-  }
-}
-
-function isSameAction(anim1, anim2) {
-  return anim1 && anim2 && anim1.action === anim2.action && anim1.frames?.length === anim2.frames?.length;
 }

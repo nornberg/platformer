@@ -44,7 +44,7 @@ export function removeRenderable(renderable) {
   }
 }
 
-export async function init(canvasElemId, width, height) {
+export async function init(canvasElemId, width, height, aux) {
   SCR_W = width;
   SCR_H = height;
 
