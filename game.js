@@ -22,12 +22,27 @@ let input_button_jump = 0;
 let input_button_extra_1 = 0;
 let endTime;
 let animationFrameId;
-let debugLevel = 0;
+let debugLevel = 1;
+
+const DEBUG_STYLE_RELEASED = "gray";
+const DEBUG_STYLE_PRESSED = "yellow";
+const DEBUG_STYLE_HOLD = "darkgray";
+const DEBUG_STYLE_AXIS_POS = "lightgreen";
+const DEBUG_STYLE_AXIS_NEG = "red";
+const DEBUG_STYLE_INFO = "white";
 
 const frameControl = {
   startTime: undefined,
   fps: 0,
   frameCount: 0,
+};
+
+const inputControl = {
+  xAxis: 0,
+  yAxis: 0,
+  jump: 0,
+  shot: 0,
+  extra1: 0,
 };
 
 const Actions = {
@@ -233,9 +248,6 @@ async function load() {
   fileAudioSheet = await mAudio.loadAudio("audio-sheet_countdown.mp3");
   fileTrackGuitar = await mAudio.loadAudio("multi-track_leadguitar.mp3");
   fileTrackDrums = await mAudio.loadAudio("multi-track_drums.mp3");
-
-  frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", "rgb(250, 250, 250)", "16px sans-serif");
-  frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", "rgb(250, 250, 250)", "16px sans-serif");
 }
 
 async function setup() {
@@ -267,6 +279,14 @@ async function setup() {
 
   //mAudio.playTrack(AudioIds.TRACK_DRUMS);
   //mAudio.playTrack(AudioIds.TRACK_GUITAR);
+
+  frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", DEBUG_STYLE_INFO, "16px sans-serif");
+  frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", DEBUG_STYLE_INFO, "16px sans-serif");
+  inputControl.extra1 = mRenderer.newRenderableText(100, 0, "1", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.jump = mRenderer.newRenderableText(110, 0, "J", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.shot = mRenderer.newRenderableText(120, 0, "S", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.xAxis = mRenderer.newRenderableText(130, 0, "X", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.yAxis = mRenderer.newRenderableText(140, 0, "Y", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
 }
 
 function cleanup() {
@@ -284,7 +304,15 @@ function cleanup() {
   };
 }
 
-async function frame(time) {
+function selectDebugStyle(key, axis) {
+  if (axis) {
+    return key === 0 ? DEBUG_STYLE_RELEASED : key === 1 ? DEBUG_STYLE_AXIS_POS : DEBUG_STYLE_AXIS_NEG;
+  } else {
+    return key === 0 ? DEBUG_STYLE_RELEASED : key === 1 ? DEBUG_STYLE_PRESSED : DEBUG_STYLE_HOLD;
+  }
+}
+
+function updateDebugInfo(time) {
   if (!frameControl.startTime) {
     frameControl.startTime = time;
   }
@@ -293,28 +321,42 @@ async function frame(time) {
   if (input_button_extra_1 === 1) {
     debugLevel = 1 - debugLevel;
   }
+  frameControl.frameCount++;
+  if (Math.trunc(currTime) % 1000 === 0) {
+    frameControl.fps = frameControl.frameCount;
+    frameControl.frameCount = 0;
+    frameControl.textFps.text = `${frameControl.fps} fps`;
+  }
+  frameControl.textSec.text = `${(currTime / 1000).toFixed(1)} s`;
+  inputControl.extra1.style = selectDebugStyle(input_button_extra_1);
+  inputControl.jump.style = selectDebugStyle(input_button_jump);
+  inputControl.shot.style = selectDebugStyle(input_button_fire);
+  inputControl.xAxis.style = selectDebugStyle(input_axis_hor, true);
+  inputControl.yAxis.style = selectDebugStyle(input_axis_ver, true);
 
+  frameControl.textSec.visible = debugLevel === 1;
+  frameControl.textFps.visible = debugLevel === 1;
+  inputControl.extra1.visible = debugLevel === 1;
+  inputControl.jump.visible = debugLevel === 1;
+  inputControl.shot.visible = debugLevel === 1;
+  inputControl.xAxis.visible = debugLevel === 1;
+  inputControl.yAxis.visible = debugLevel === 1;
+
+  return currTime;
+}
+
+async function frame(time) {
+  const currTime = updateDebugInfo(time);
   if (currTime - endTime > 3000) {
     console.log("END");
     cancelAnimationFrame(animationFrameId);
     cleanup();
   } else {
     animationFrameId = requestAnimationFrame(frame);
-
     update(currTime);
     mRenderer.render(currTime);
     mAudio.play(currTime);
     input(currTime);
-
-    frameControl.frameCount++;
-    if (Math.trunc(currTime) % 1000 === 0) {
-      frameControl.fps = frameControl.frameCount;
-      frameControl.frameCount = 0;
-      frameControl.textFps.text = `${frameControl.fps} fps`;
-    }
-    frameControl.textSec.text = `${(currTime / 1000).toFixed(1)} s`;
-    frameControl.textSec.visible = debugLevel === 1;
-    frameControl.textFps.visible = debugLevel === 1;
   }
 }
 
