@@ -13,6 +13,13 @@ export function newPhysicsBody(x, y, width, height, xMaxSpeed, yMaxSpeed, dir, x
   return body;
 }
 
+export function removePhysicsBody(body) {
+  if (body) {
+    const i = bodies.indexOf(body);
+    bodies.splice(i, 1);
+  }
+}
+
 export async function init() {}
 
 export function collision(body1, body2) {

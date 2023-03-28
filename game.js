@@ -46,7 +46,7 @@ const inputControl = {
   extra1: 0,
 };
 
-const Actions = {
+const AnimationIds = {
   IDLE: "idle",
   WALK: "walk",
   JUMP: "jump",
@@ -95,10 +95,9 @@ function newProjectileBall(x, y, dir) {
     active: true,
     type: ObjectTypes.PROJECTILE,
     body: mPhysics.newPhysicsBody(x, y, 10, 10, 5, 0, dir, 5, 0),
-    animation: mAnim.newAnimator(Actions.BALL_FIRED, States.NORMAL),
+    animator: mAnim.newAnimator(AnimationIds.BALL_FIRED, States.NORMAL),
     renderable: mRenderer.newRenderableSprite(x, y, 10, 10, 0.5, 0.5, false, false, fileSpriteSheet, 0),
     playable: mAudio.newPlayableEffect(),
-    next: {},
     power: 1,
     renderableEnvelope: mRenderer.newRenderableGeometry(x, y, 10, 10, false, false, "rect", "white", false),
     renderableBoundingBox: mRenderer.newRenderableGeometry(x, y, 0, 0, false, false, "rect", "blue", false),
@@ -113,10 +112,9 @@ function newCharacterMegaman(name, x, y, xSpeed, dir) {
     active: true,
     type: ObjectTypes.CHARACTER,
     body: mPhysics.newPhysicsBody(x, y, 24, 40, xSpeed, 8, dir, 0, 0, 0.3, 0.3, false),
-    animation: mAnim.newAnimator(Actions.IDLE, States.NORMAL),
+    animator: mAnim.newAnimator(AnimationIds.IDLE, States.NORMAL),
     renderable: mRenderer.newRenderableSprite(x, y, 24, 40, 0.5, 1, false, false, fileSpriteSheet, 0),
     playable: mAudio.newPlayableEffect(),
-    next: {},
     energy: 3,
     lastStepTime: 0,
     renderableEnvelope: mRenderer.newRenderableGeometry(x, y, 24, 40, false, false, "rect", "white", false),
@@ -198,7 +196,7 @@ async function setup() {
   inputControl.xAxisR = mRenderer.newRenderableText(160, 0, "HR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
   inputControl.yAxisR = mRenderer.newRenderableText(180, 0, "VR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
 
-  let a = mAnim.setAnimation(Actions.IDLE);
+  let a = mAnim.setAnimation(AnimationIds.IDLE);
   mAnim.addFrame(a, States.NORMAL, 1, 3000);
   mAnim.addFrame(a, States.NORMAL, 2, 30);
   mAnim.addFrame(a, States.NORMAL, 3, 30);
@@ -208,7 +206,7 @@ async function setup() {
   mAnim.addFrame(a, States.SHOOTING, 4, 30);
   mAnim.addFrame(a, States.SHOOTING, 4, 30);
 
-  a = mAnim.setAnimation(Actions.WALK);
+  a = mAnim.setAnimation(AnimationIds.WALK);
   mAnim.addFrame(a, States.NORMAL, 10, 120, AudioIds.EFFECT_CHAR_STEP);
   mAnim.addFrame(a, States.NORMAL, 11, 120);
   mAnim.addFrame(a, States.NORMAL, 12, 120);
@@ -222,21 +220,21 @@ async function setup() {
   mAnim.addFrame(a, States.SHOOTING, 24, 120);
   mAnim.addFrame(a, States.SHOOTING, 25, 120);
 
-  a = mAnim.setAnimation(Actions.JUMP);
+  a = mAnim.setAnimation(AnimationIds.JUMP);
   mAnim.addFrame(a, States.NORMAL, 16, 100, AudioIds.EFFECT_CHAR_JUMP);
   mAnim.addFrame(a, States.NORMAL, 17, 1000);
   mAnim.addFrame(a, States.SHOOTING, 26, 100, AudioIds.EFFECT_CHAR_JUMP);
   mAnim.addFrame(a, States.SHOOTING, 27, 1000);
 
-  a = mAnim.setAnimation(Actions.FALL);
+  a = mAnim.setAnimation(AnimationIds.FALL);
   mAnim.addFrame(a, States.NORMAL, 18, 1000);
   mAnim.addFrame(a, States.SHOOTING, 28, 1000);
 
-  a = mAnim.setAnimation(Actions.HIT);
+  a = mAnim.setAnimation(AnimationIds.HIT);
   mAnim.addFrame(a, States.NORMAL, 30, 30);
   mAnim.addFrame(a, States.NORMAL, 35, 30);
 
-  a = mAnim.setAnimation(Actions.DEATH, 16);
+  a = mAnim.setAnimation(AnimationIds.DEATH, 16);
   mAnim.addFrame(a, States.NORMAL, 36, 16, AudioIds.EFFECT_CHAR_HIT);
   mAnim.addFrame(a, States.NORMAL, null, 16);
   mAnim.addFrame(a, States.NORMAL, 36, 16);
@@ -249,17 +247,17 @@ async function setup() {
   mAnim.addFrame(a, States.NORMAL, null, 16);
   mAnim.addFrame(a, States.NORMAL, 36, 16);
 
-  a = mAnim.setAnimation(Actions.WIN);
+  a = mAnim.setAnimation(AnimationIds.WIN);
   mAnim.addFrame(a, States.NORMAL, 8, 2000);
 
-  a = mAnim.setAnimation(Actions.BALL_FIRED);
+  a = mAnim.setAnimation(AnimationIds.BALL_FIRED);
   mAnim.addFrame(a, States.NORMAL, 61, 50, AudioIds.EFFECT_BALL_SHOT);
 
-  a = mAnim.setAnimation(Actions.BALL_GOING);
+  a = mAnim.setAnimation(AnimationIds.BALL_GOING);
   mAnim.addFrame(a, States.NORMAL, 37, 100);
   mAnim.addFrame(a, States.NORMAL, 38, 100);
 
-  a = mAnim.setAnimation(Actions.BALL_HIT);
+  a = mAnim.setAnimation(AnimationIds.BALL_HIT);
   mAnim.addFrame(a, States.NORMAL, 60, 20, AudioIds.EFFECT_BALL_HIT);
   mAnim.addFrame(a, States.NORMAL, 61, 100);
   mAnim.addFrame(a, States.NORMAL, 62, 100);
@@ -365,27 +363,25 @@ function update(time) {
       console.log("Removing object " + obj.name);
       releaseModules(obj);
       objects.splice(i, 1);
-    } else {
-      obj.next = { action: obj.next.action, state: obj.next.state };
     }
   }
 
   if (objects.length === 1 && objects[0].name === "player") {
     mAudio.stopTrack(AudioIds.TRACK_GUITAR);
-    objects[0].next.action = Actions.WIN;
+    objects[0].animator.animationId = AnimationIds.WIN;
     objects[0].body.dir = 1;
     objects[0].body.xSpeed = 0;
     objects[0].body.xAccel = 0;
     objects[0].body.xDecel = 0;
     if (!endTime) endTime = time;
-  } else if (objects[0].next.action !== Actions.WIN) {
+  } else if (objects[0].animator.animationId !== AnimationIds.WIN) {
     if (mInput.getAxis("H") !== 0) {
       objects[0].body.dir = mInput.getAxis("H");
       objects[0].body.xAccel = 0.1;
     } else {
       objects[0].body.xAccel = 0;
     }
-    objects[0].next.fire = mInput.isJustPressed("X") ? 1 : mInput.isPressed("X") ? -1 : 0;
+    objects[0].firing = mInput.isJustPressed("X") ? 1 : mInput.isPressed("X") ? -1 : 0;
     if (mInput.isJustPressed("A") && objects[0].body.floored) {
       console.log("JUMP");
       objects[0].body.yAccel = 1.7;
@@ -396,21 +392,21 @@ function update(time) {
     if (!endTime) {
       switch (obj.type) {
         case ObjectTypes.PROJECTILE:
-          if (obj.animation.action === Actions.BALL_HIT) {
-            if (!obj.animation.playing) {
+          if (obj.animator.animationId === AnimationIds.BALL_HIT) {
+            if (!obj.animator.playing) {
               obj.active = false;
             }
           }
-          if ([Actions.BALL_FIRED, Actions.BALL_GOING].includes(obj.animation.action)) {
-            if (obj.animation.action === Actions.BALL_FIRED && !obj.animation.playing) {
-              obj.next.action = Actions.BALL_GOING;
+          if ([AnimationIds.BALL_FIRED, AnimationIds.BALL_GOING].includes(obj.animator.animationId)) {
+            if (obj.animator.animationId === AnimationIds.BALL_FIRED && !obj.animator.playing) {
+              obj.animator.animationId = AnimationIds.BALL_GOING;
             }
             if (obj.body.x < 0 || obj.body.x > 320) {
               obj.active = false;
             }
             const hitCharacter = objects.filter((c) => c.type === ObjectTypes.CHARACTER).find((c) => mPhysics.collision(c.body, obj.body));
             if (hitCharacter) {
-              obj.next.action = Actions.BALL_HIT;
+              obj.animator.animationId = AnimationIds.BALL_HIT;
               obj.body.xSpeed = 0;
               obj.body.xAccel = 0;
               hitCharacter.isHit = true;
@@ -430,8 +426,8 @@ function update(time) {
             }
           }
           if (obj.isHit) {
-            obj.next.action = obj.energy === 0 ? Actions.DEATH : Actions.HIT;
-            obj.next.state = States.NORMAL;
+            obj.animator.animationId = obj.energy === 0 ? AnimationIds.DEATH : AnimationIds.HIT;
+            obj.animator.state = States.NORMAL;
             obj.body.xAccel = -obj.body.dir;
             if (time - obj.hitTime > 250) {
               obj.isHit = false;
@@ -441,19 +437,19 @@ function update(time) {
             }
           } else {
             if (obj.body.ySpeed < 0) {
-              obj.next.action = Actions.JUMP;
+              obj.animator.animationId = AnimationIds.JUMP;
             } else if (obj.body.ySpeed > 0) {
-              obj.next.action = Actions.FALL;
+              obj.animator.animationId = AnimationIds.FALL;
             } else if (obj.body.xSpeed > 0) {
-              obj.next.action = Actions.WALK;
+              obj.animator.animationId = AnimationIds.WALK;
             } else {
-              obj.next.action = Actions.IDLE;
+              obj.animator.animationId = AnimationIds.IDLE;
             }
-            if (obj.next.fire === 0) {
-              obj.next.state = States.NORMAL;
+            if (obj.firing === 0) {
+              obj.animator.state = States.NORMAL;
             } else {
-              obj.next.state = States.SHOOTING;
-              if (obj.next.fire === 1) {
+              obj.animator.state = States.SHOOTING;
+              if (obj.firing === 1) {
                 newProjectileBall(obj.body.x + obj.body.dir * 27, obj.body.y - 21, obj.body.dir);
               }
             }
@@ -505,14 +501,14 @@ function update(time) {
 
 function updateModules(obj) {
   if (obj.playable) {
-    obj.playable.effectId = obj.animation.currAudioEffect;
+    obj.playable.effectId = obj.animator.audioEffectId;
     obj.playable.playing = obj.playable.effectId != null;
   }
   if (obj.renderable) {
     obj.renderable.posX = obj.body.x;
     obj.renderable.posY = obj.body.y;
     obj.renderable.flipX = obj.body.dir < 0;
-    obj.renderable.index = obj.animation.currFrame;
+    obj.renderable.index = obj.animator.spriteIndex;
   }
   if (obj.renderableEnvelope) {
     const e = mPhysics.calcEnvelope(obj.body);
@@ -537,5 +533,7 @@ function releaseModules(obj) {
   mRenderer.removeRenderable(obj.renderable);
   mRenderer.removeRenderable(obj.renderableEnvelope);
   mRenderer.removeRenderable(obj.renderableBoundingBox);
+  mPhysics.removePhysicsBody(obj.body);
   mAudio.removePlayable(obj.playable);
+  mAnim.removeAnimator(obj.animator);
 }
