@@ -5,6 +5,7 @@ import * as mRenderer from "./module_renderer.js";
 import * as mPhysics from "./module_physics.js";
 import * as mInput from "./module_input.js";
 import * as mAnim from "./module_animation.js";
+import { AnimationIds, States, ObjectTypes, AudioIds } from "./constants.js";
 
 document.getElementById("preloadingMessage").style.display = "none";
 document.getElementById("startMessage").style.display = "unset";
@@ -44,40 +45,6 @@ const inputControl = {
   jump: 0,
   shot: 0,
   extra1: 0,
-};
-
-const AnimationIds = {
-  IDLE: "idle",
-  WALK: "walk",
-  JUMP: "jump",
-  FALL: "fall",
-  HIT: "hit",
-  DEATH: "death",
-  WIN: "win",
-  BALL_FIRED: "ball_fired",
-  BALL_GOING: "ball_going",
-  BALL_HIT: "ball_hit",
-};
-
-const ObjectTypes = {
-  CHARACTER: "character",
-  PROJECTILE: "projectile",
-};
-
-const States = {
-  NORMAL: "normal",
-  SHOOTING: "shooting",
-};
-
-const AudioIds = {
-  CHAR_AUDIO_SHEET: "char_audio_sheet",
-  TRACK_GUITAR: "track_guitar",
-  TRACK_DRUMS: "track_drums",
-  EFFECT_CHAR_STEP: "effect_char_step",
-  EFFECT_CHAR_JUMP: "effect_char_jump",
-  EFFECT_CHAR_HIT: "effect_char_hit",
-  EFFECT_BALL_SHOT: "effect_ball_shot",
-  EFFECT_BALL_HIT: "effect_ball_hit",
 };
 
 const platforms = [
