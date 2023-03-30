@@ -9,6 +9,10 @@ export const BUTTONS = {
   b: 1,
   a: 2,
   x: 3,
+  cross: 0,
+  circle: 1,
+  triangle: 3,
+  square: 2,
   lt: 4,
   rt: 5,
   lb: 6,
@@ -40,36 +44,36 @@ export const AXES = {
 
 const mappings = {};
 const presedKeys = {};
-let gamepadDetected = false;
 let gamepadAllowed = true;
 
 export function init() {
-  window.addEventListener("gamepadconnected", (e) => {});
-  window.addEventListener("gamepaddisconnected", (e) => {});
+  window.addEventListener("gamepadconnected", (e) => console.log("Gamepad connected."));
+  window.addEventListener("gamepaddisconnected", (e) => console.log("Gamepad disconnected."));
   window.addEventListener("keydown", (e) => (presedKeys[e.keyCode] = true));
   window.addEventListener("keyup", (e) => delete presedKeys[e.keyCode]);
 }
 
 export function update() {
-  const gamepads = [];
+  let gamepads = [];
   if (gamepadAllowed) {
     try {
-      const gamepads = navigator.getGamepads();
+      gamepads = navigator.getGamepads();
     } catch (e) {
       console.error(e);
       gamepadAllowed = false;
     }
   }
-  gamepadDetected = !!gamepads[1];
+  const gamepad = gamepads.length > 0 ? gamepads[0] : null;
+  const gamepadDetected = gamepad !== null;
   for (const name in mappings) {
     const m = mappings[name];
     if (m.isButton) {
-      const gamepadButtonPressed = gamepadDetected ? gamepads[1].buttons[m.map].pressed : false;
+      const gamepadButtonPressed = gamepadDetected ? gamepad.buttons[m.map].pressed : false;
       let state_g = m.map != undefined ? correctButtonState(m.state, gamepadButtonPressed) : false;
       let state_k = m.key != undefined ? correctButtonState(m.state, presedKeys[m.key]) : false;
       m.state = Math.max(state_g, state_k);
     } else {
-      const gamepadAxeValue = gamepadDetected ? gamepads[1].axes[m.map] : 0;
+      const gamepadAxeValue = gamepadDetected ? gamepad.axes[m.map] : 0;
       let value_g = correctAxis(gamepadAxeValue);
       let value_k = correctDigitalAxis(presedKeys[m.keyDec], presedKeys[m.keyInc]);
       m.value = value_g !== 0 ? value_g : value_k;

@@ -95,10 +95,10 @@ async function setup() {
   mInput.mapAxis("V", 83, 87, mInput.AXES.lsv); // teclas S W
   mInput.mapAxis("HR", 37, 39, mInput.AXES.rsh); // setas LEFT RIGHT
   mInput.mapAxis("VR", 40, 38, mInput.AXES.rsv); // setas DOWN UP
-  mInput.mapButton("X", 77, mInput.BUTTONS.x); // tecla M
-  mInput.mapButton("A", 78, mInput.BUTTONS.a); // tecla N
-  mInput.mapButton("B", 188, mInput.BUTTONS.b); // tecla .
-  mInput.mapButton("Y", 66, mInput.BUTTONS.y); // tecla B
+  mInput.mapButton("X", 77, mInput.BUTTONS.square); // tecla M
+  mInput.mapButton("A", 78, mInput.BUTTONS.cross); // tecla N
+  mInput.mapButton("B", 188, mInput.BUTTONS.circle); // tecla .
+  mInput.mapButton("Y", 66, mInput.BUTTONS.triangle); // tecla B
   mInput.mapButton("LB", 45, mInput.BUTTONS.lb); // INSERT
   mInput.mapButton("RB", 33, mInput.BUTTONS.rb); // PAGE UP
   mInput.mapButton("LT", 46, mInput.BUTTONS.lt); // DELETE

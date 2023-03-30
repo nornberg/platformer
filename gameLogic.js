@@ -85,7 +85,7 @@ function updatePlayer(time) {
     running = false;
   } else if (objects[0].animator.animationId !== AnimationIds.WIN) {
     if (mInput.getAxis("H") !== 0) {
-      objects[0].body.dir = mInput.getAxis("H");
+      objects[0].body.dir = Math.sign(mInput.getAxis("H"));
       objects[0].body.xAccel = 0.1;
     } else {
       objects[0].body.xAccel = 0;
