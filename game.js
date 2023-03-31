@@ -46,6 +46,7 @@ const inputControl = {
   jump: 0,
   shot: 0,
   extra1: 0,
+  mappings: [],
 };
 
 const platforms = [
@@ -115,16 +116,6 @@ async function setup() {
   mAudio.setEffect(AudioIds.EFFECT_CHAR_HIT, AudioIds.CHAR_AUDIO_SHEET, 0.1, 1);
   mAudio.setEffect(AudioIds.EFFECT_BALL_SHOT, AudioIds.CHAR_AUDIO_SHEET, 18.15, 18.2);
   mAudio.setEffect(AudioIds.EFFECT_BALL_HIT, AudioIds.CHAR_AUDIO_SHEET, 14.2, 15);
-
-  frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", DEBUG_STYLE_INFO, "16px sans-serif");
-  frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", DEBUG_STYLE_INFO, "16px sans-serif");
-  inputControl.extra1 = mRenderer.newRenderableText(90, 0, "LB", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.jump = mRenderer.newRenderableText(110, 0, "X", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.shot = mRenderer.newRenderableText(120, 0, "A", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.xAxisL = mRenderer.newRenderableText(130, 0, "H", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.yAxisL = mRenderer.newRenderableText(140, 0, "V", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.xAxisR = mRenderer.newRenderableText(160, 0, "HR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.yAxisR = mRenderer.newRenderableText(180, 0, "VR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
 
   let a = mAnim.setAnimation(AnimationIds.IDLE);
   mAnim.addFrame(a, States.NORMAL, 1, 3000);
@@ -203,6 +194,31 @@ async function setup() {
 
   await mLogic.init(fileSpriteSheet);
 
+  frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", DEBUG_STYLE_INFO, "11px sans-serif");
+  frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", DEBUG_STYLE_INFO, "11px sans-serif");
+  inputControl.extra1 = mRenderer.newRenderableText(90, 0, "LB", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.jump = mRenderer.newRenderableText(110, 0, "X", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.shot = mRenderer.newRenderableText(120, 0, "A", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.xAxisL = mRenderer.newRenderableText(130, 0, "H", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.yAxisL = mRenderer.newRenderableText(140, 0, "V", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.xAxisR = mRenderer.newRenderableText(160, 0, "HR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  inputControl.yAxisR = mRenderer.newRenderableText(180, 0, "VR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+
+  inputControl.renderables = [];
+  const screen = mRenderer.getScreenInfo();
+  const size = 10;
+  let x = screen.width - size - 1;
+  let y = screen.height / 2 - (Object.keys(mInput.mappings).length * size) / 2 - size;
+  for (const name in mInput.mappings) {
+    const m = mInput.mappings[name];
+    if (m.isButton) {
+      inputControl.renderables[name] = mRenderer.newRenderableGeometry(x, y, size, size, false, false, "rect", DEBUG_STYLE_RELEASED, m.state === mInput.PRESSED);
+    } else {
+      inputControl.renderables[name] = mRenderer.newRenderableGeometry(x, y, size / 2 + (m.value * size) / 2, size, false, false, "rect", DEBUG_STYLE_RELEASED, true);
+    }
+    y += size + 1;
+  }
+
   //mAudio.playTrack(AudioIds.TRACK_DRUMS);
   //mAudio.playTrack(AudioIds.TRACK_GUITAR);
 }
@@ -263,6 +279,20 @@ function updateDebugInfo(time) {
   inputControl.yAxisL.visible = debugLevel === 1;
   inputControl.xAxisR.visible = debugLevel === 1;
   inputControl.yAxisR.visible = debugLevel === 1;
+
+  const size = 10;
+  for (const name in inputControl.renderables) {
+    const r = inputControl.renderables[name];
+    const m = mInput.mappings[name];
+    r.visible = debugLevel === 1;
+    if (m.isButton) {
+      r.style = mInput.isJustPressed(name) ? DEBUG_STYLE_PRESSED : mInput.isPressed(name) ? DEBUG_STYLE_HOLD : DEBUG_STYLE_RELEASED;
+      r.filled = mInput.isPressed(name);
+    } else {
+      r.style = m.value !== 0 ? DEBUG_STYLE_PRESSED : DEBUG_STYLE_RELEASED;
+      r.sizeX = size / 2 + (m.value * size) / 2;
+    }
+  }
 
   return currTime;
 }

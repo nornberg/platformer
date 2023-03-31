@@ -1,9 +1,9 @@
 "use strict";
 
-const RELEASED = 0;
-const JUST_PRESSED = 1;
-const PRESSED = 2;
-const BTN_FIRE = 32;
+export const RELEASED = 0;
+export const JUST_PRESSED = 1;
+export const PRESSED = 2;
+
 export const BUTTONS = {
   y: 0,
   b: 1,
@@ -31,6 +31,7 @@ export const BUTTONS = {
   sys8: 19,
   sys9: 20,
 };
+
 export const AXES = {
   dUp: 9,
   dDown: 9,
@@ -42,7 +43,7 @@ export const AXES = {
   rsv: 2,
 };
 
-const mappings = {};
+export const mappings = {};
 const presedKeys = {};
 let gamepadAllowed = true;
 
@@ -63,8 +64,10 @@ export function update() {
       gamepadAllowed = false;
     }
   }
-  const gamepad = gamepads.length > 0 ? gamepads[0] : null;
-  const gamepadDetected = gamepad !== null;
+
+  const gamepad = gamepads.find((gp) => gp !== null);
+  const gamepadDetected = !!gamepad;
+
   for (const name in mappings) {
     const m = mappings[name];
     if (m.isButton) {
@@ -117,21 +120,4 @@ export function correctDigitalAxis(keyDecPressed, keyIncPressed) {
 
 export function correctButtonState(currState, pressed) {
   return !pressed ? RELEASED : currState === RELEASED ? JUST_PRESSED : PRESSED;
-}
-
-export function draw(mRender) {
-  /*
-  const size = 10;
-  let x = NGS.canvas.width - size - 1;
-  let y = 1;
-  for (const name in mappings) {
-    const m = mappings[name];
-    if (m.isButton) {
-      drawRect(x, y, size, size, m.state === PRESSED ? 255 : 252);
-    } else {
-      drawRect(x, y, size, size, 252);
-      drawRect(x, y, size / 2 + (m.value * size) / 2, size, 255);
-    }
-    y += size + 1;
-  }*/
 }

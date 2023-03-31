@@ -18,6 +18,10 @@ let ctx;
 let renderableId = 0;
 const renderables = [];
 
+export function getScreenInfo() {
+  return { width: SCR_W, height: SCR_H };
+}
+
 export function newRenderableSprite(posX, posY, sizeX, sizeY, anchorX, anchorY, flipX, flipY, spriteSheet, index) {
   sizeX = sizeY = SPRITE_SIZE;
   const r = { id: renderableId++, visible: true, type: RenderableTypes.SPRITE, posX, posY, sizeX, sizeY, anchorX, anchorY, flipX, flipY, spriteSheet, index };
