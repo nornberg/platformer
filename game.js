@@ -92,8 +92,8 @@ async function setup() {
   await mInput.init();
   await mAnim.init();
 
-  mInput.mapAxis("H", 65, 68, mInput.AXES.lsh); // teclas A D
-  mInput.mapAxis("V", 83, 87, mInput.AXES.lsv); // teclas S W
+  mInput.mapAxis("H", 65, 68, mInput.AXES.lsh, mInput.DPAD.HOR); // teclas A D
+  mInput.mapAxis("V", 83, 87, mInput.AXES.lsv, mInput.DPAD.VER); // teclas S W
   mInput.mapAxis("HR", 37, 39, mInput.AXES.rsh); // setas LEFT RIGHT
   mInput.mapAxis("VR", 40, 38, mInput.AXES.rsv); // setas DOWN UP
   mInput.mapButton("X", 77, mInput.BUTTONS.square); // tecla M
@@ -104,7 +104,7 @@ async function setup() {
   mInput.mapButton("RB", 33, mInput.BUTTONS.rb); // PAGE UP
   mInput.mapButton("LT", 46, mInput.BUTTONS.lt); // DELETE
   mInput.mapButton("RT", 34, mInput.BUTTONS.rt); // PAGE DOWN
-  mInput.mapButton("SELECT", 8, mInput.BUTTONS.select); // BACKSPACE
+  mInput.mapButton("SELECT", 8, mInput.BUTTONS.back); // BACKSPACE
   mInput.mapButton("START", 13, mInput.BUTTONS.start); // ENTER
 
   await mAudio.setAudioSheet(AudioIds.CHAR_AUDIO_SHEET, fileAudioSheet);
@@ -240,7 +240,7 @@ function cleanup() {
 
 function selectDebugStyle(key, axis) {
   if (axis) {
-    return mInput.getAxis(key) === 0 ? DEBUG_STYLE_RELEASED : mInput.getAxis(key) === 1 ? DEBUG_STYLE_AXIS_POS : DEBUG_STYLE_AXIS_NEG;
+    return mInput.getAxis(key) === 0 ? DEBUG_STYLE_RELEASED : mInput.getAxis(key) > 0 ? DEBUG_STYLE_AXIS_POS : DEBUG_STYLE_AXIS_NEG;
   } else {
     return mInput.isJustPressed(key) ? DEBUG_STYLE_PRESSED : mInput.isPressed(key) ? DEBUG_STYLE_HOLD : DEBUG_STYLE_RELEASED;
   }
@@ -291,6 +291,9 @@ function updateDebugInfo(time) {
     } else {
       r.style = m.value !== 0 ? DEBUG_STYLE_PRESSED : DEBUG_STYLE_RELEASED;
       r.sizeX = size / 2 + (m.value * size) / 2;
+      if (r.sizeX === 0) {
+        r.sizeX = 1;
+      }
     }
   }
 
