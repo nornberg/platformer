@@ -10,7 +10,18 @@ import { AnimationIds, States, ObjectTypes, AudioIds } from "./constants.js";
 let running = true;
 let debugLevel = 0;
 let fileSpriteSheet;
+let fileBackground;
 let projectile_id = 0;
+
+const platforms = [
+  { start: 0, end: 320, height: 235 },
+  { start: 0, end: 150, height: 180 },
+  { start: 250, end: 500, height: 120 },
+  { start: 550, end: 700, height: 60 },
+  { start: 160, end: 500, height: 280 },
+  { start: 400, end: 700, height: 320 },
+];
+
 const objects = [];
 
 function newProjectileBall(x, y, dir) {
@@ -48,8 +59,16 @@ function newCharacterMegaman(name, x, y, xSpeed, dir) {
   return character;
 }
 
-export async function init(spriteSheet) {
+export async function init(spriteSheet, backgroundImage) {
+  mRenderer.setLayer("bg", 300, 300, 1, 0.5);
+  mRenderer.setLayer(mRenderer.DefaultLayers.ACTION, 1000, 1000, 0, 1);
   fileSpriteSheet = spriteSheet;
+  fileBackground = backgroundImage;
+  mRenderer.newRenderableSprite(0, 0, fileBackground.width, fileBackground.height, 0, 0, false, false, fileBackground, 0, "bg");
+  platforms.forEach((p) => {
+    p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray", true);
+  });
+  mPhysics.setPlatforms(platforms);
   newCharacterMegaman("player", 180, 50, 3, 1);
   newCharacterMegaman("enemy_01", 20, 180, 2, 1);
   newCharacterMegaman("enemy_02", 270, 120, 2, -1);

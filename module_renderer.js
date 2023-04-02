@@ -4,6 +4,11 @@ let SCR_W;
 let SCR_H;
 export const SPRITE_SIZE = 56;
 
+export const DefaultLayers = {
+  ACTION: "action",
+  GUI: "gui",
+};
+
 const RenderableTypes = {
   SPRITE: 1,
   GEOMETRY: 2,
@@ -11,40 +16,58 @@ const RenderableTypes = {
 };
 
 let canvasScreen;
-let offscreenCanvas;
 let ctxScreen;
-let ctx;
-
 let renderableId = 0;
-const renderables = [];
+const layers = [];
+export const viewport = {
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+};
 
 export function getScreenInfo() {
   return { width: SCR_W, height: SCR_H };
 }
 
-export function newRenderableSprite(posX, posY, sizeX, sizeY, anchorX, anchorY, flipX, flipY, spriteSheet, index) {
-  sizeX = sizeY = SPRITE_SIZE;
-  const r = { id: renderableId++, visible: true, type: RenderableTypes.SPRITE, posX, posY, sizeX, sizeY, anchorX, anchorY, flipX, flipY, spriteSheet, index };
-  renderables.push(r);
+export function newRenderableSprite(posX, posY, sizeX, sizeY, anchorX, anchorY, flipX, flipY, spriteSheet, index, layerId = DefaultLayers.ACTION) {
+  const layer = layers.find((l) => l.id === layerId);
+  if (!layer) {
+    return null;
+  }
+  if (sizeX < SPRITE_SIZE && sizeY < SPRITE_SIZE) {
+    sizeX = sizeY = SPRITE_SIZE;
+  }
+  const r = { id: renderableId++, visible: true, type: RenderableTypes.SPRITE, posX, posY, sizeX, sizeY, anchorX, anchorY, flipX, flipY, spriteSheet, index, layerId };
+  layer.renderables.push(r);
   return r;
 }
 
-export function newRenderableGeometry(posX, posY, sizeX, sizeY, flipX, flipY, form, style, filled) {
-  const r = { id: renderableId++, visible: true, type: RenderableTypes.GEOMETRY, posX, posY, sizeX, sizeY, flipX, flipY, form, style, filled };
-  renderables.push(r);
+export function newRenderableGeometry(posX, posY, sizeX, sizeY, flipX, flipY, form, style, filled, layerId = DefaultLayers.ACTION) {
+  const layer = layers.find((l) => l.id === layerId);
+  if (!layer) {
+    return null;
+  }
+  const r = { id: renderableId++, visible: true, type: RenderableTypes.GEOMETRY, posX, posY, sizeX, sizeY, flipX, flipY, form, style, filled, layerId };
+  layer.renderables.push(r);
   return r;
 }
 
-export function newRenderableText(posX, posY, text, align, style, font) {
-  const r = { id: renderableId++, visible: true, type: RenderableTypes.TEXT, posX, posY, text, align, style, font };
-  renderables.push(r);
+export function newRenderableText(posX, posY, text, align, style, font, layerId = DefaultLayers.ACTION) {
+  const layer = layers.find((l) => l.id === layerId);
+  if (!layer) {
+    return null;
+  }
+  const r = { id: renderableId++, visible: true, type: RenderableTypes.TEXT, posX, posY, text, align, style, font, layerId };
+  layer.renderables.push(r);
   return r;
 }
 
 export function removeRenderable(renderable) {
   if (renderable) {
-    const i = renderables.indexOf(renderable);
-    renderables.splice(i, 1);
+    const layer = layers.find((l) => l.id === renderable.layerId);
+    const i = layer.renderables.indexOf(renderable);
+    layer.renderables.splice(i, 1);
   }
 }
 
@@ -54,65 +77,63 @@ export async function init(canvasElemId, width, height, aux) {
 
   canvasScreen = document.getElementById(canvasElemId);
   ctxScreen = canvasScreen.getContext("2d");
-
-  offscreenCanvas = new OffscreenCanvas(SCR_W, SCR_H);
-  ctx = offscreenCanvas.getContext("2d");
-
-  const kx = canvasScreen.width / offscreenCanvas.width;
-  const ky = canvasScreen.height / offscreenCanvas.height;
-  ctxScreen.scale(kx, ky);
   ctxScreen.imageSmoothingEnabled = false;
   ctxScreen.mozImageSmoothingEnabled = false;
   ctxScreen.webkitImageSmoothingEnabled = false;
   ctxScreen.msImageSmoothingEnabled = false;
+
+  setLayer(DefaultLayers.ACTION, width, height, 0, 0);
+  setLayer(DefaultLayers.GUI, width, height, -99, 0);
+  viewport.width = width;
+  viewport.height = height;
+  viewport.scaleX = canvasScreen.width / width;
+  viewport.scaleY = canvasScreen.height / height;
+}
+
+export function setLayer(id, width, height, zIndex, distance) {
+  let layer = layers.find((l) => l.id === id);
+  if (!layer) {
+    layer = {};
+    layers.push(layer);
+  }
+  layer.canvas = new OffscreenCanvas(width, height);
+  layer.ctx = layer.canvas.getContext("2d");
+  layer.id = id;
+  layer.distance = distance;
+  layer.zIndex = zIndex;
+  layer.renderables = [];
+  layers.sort((l1, l2) => l2.zIndex - l1.zIndex);
 }
 
 export function render(time) {
-  clearScreen();
-
-  renderables.forEach((r) => {
-    if (r.visible) {
-      switch (r.type) {
-        case RenderableTypes.SPRITE:
-          renderSprite(r);
-          break;
-        case RenderableTypes.GEOMETRY:
-          renderGeometry(r);
-          break;
-        case RenderableTypes.TEXT:
-          renderText(r);
-          break;
+  ctxScreen.fillStyle = "rgb(150, 50, 150)";
+  ctxScreen.fillRect(0, 0, SCR_W, SCR_H);
+  layers.forEach((layer) => {
+    layer.ctx.fillStyle = "rgb(50, 50, 50)";
+    //layer.ctx.fillRect(0, 0, layer.canvas.width, layer.canvas.height);
+    layer.renderables.forEach((r) => {
+      if (r.visible) {
+        switch (r.type) {
+          case RenderableTypes.SPRITE:
+            renderSprite(r, layer.ctx);
+            break;
+          case RenderableTypes.GEOMETRY:
+            renderGeometry(r, layer.ctx);
+            break;
+          case RenderableTypes.TEXT:
+            renderText(r, layer.ctx);
+            break;
+        }
       }
-    }
+    });
+    ctxScreen.setTransform(viewport.scaleX, 0, 0, viewport.scaleY, viewport.x * layer.distance, viewport.y * layer.distance);
+    ctxScreen.drawImage(layer.canvas.transferToImageBitmap(), 0, 0);
   });
-
-  /*
-    ctx.fillStyle = "rgb(250, 250, 250)";
-    ctx.font = "16px sans-serif";
-    ctx.textBaseline = "top";
-    ctx.textAlign = "left";
-    ctx.fillText((time / 1000).toFixed(1) + " s", 0, 0);
-    ctx.textAlign = "right";
-    ctx.fillText(frameControl.fps + " fps", 320, 0);
-    
-    ctx.textAlign = "center";
-    ctx.fillStyle = input_button_fire ? "rgb(255, 28, 28)" : "rgb(250, 250, 250)";
-    ctx.fillText("fire", 160 + 20, 0);
-    ctx.fillStyle = input_button_jump ? "rgb(255, 28, 28)" : "rgb(250, 250, 250)";
-    ctx.fillText("jump", 160 - 20, 0);
-    */
-
-  ctxScreen.drawImage(offscreenCanvas.transferToImageBitmap(), 0, 0);
 }
 
-export function clearScreen() {
-  ctx.fillStyle = "rgb(50, 50, 50)";
-  ctx.fillRect(0, 0, 320, 240);
-}
-
-export function renderSprite(r) {
-  const SX = SPRITE_SIZE;
-  const SY = SPRITE_SIZE;
+export function renderSprite(r, ctx) {
+  const SX = r.sizeX;
+  const SY = r.sizeY;
   const spritesInARow = r.spriteSheet.width / SPRITE_SIZE;
   const iy = Math.trunc(r.index / spritesInARow);
   const ix = r.index % spritesInARow;
@@ -125,7 +146,7 @@ export function renderSprite(r) {
   ctx.restore();
 }
 
-export function renderGeometry(r) {
+export function renderGeometry(r, ctx) {
   switch (r.form) {
     case "rect":
       if (r.filled) {
@@ -139,7 +160,7 @@ export function renderGeometry(r) {
   }
 }
 
-export function renderText(r) {
+export function renderText(r, ctx) {
   ctx.fillStyle = r.style;
   ctx.font = r.font;
   ctx.textAlign = r.align;

@@ -17,6 +17,7 @@ onkeydown = onclick = () => {
 };
 
 let fileSpriteSheet;
+let fileBackground;
 let fileAudioSheet;
 let fileTrackGuitar;
 let fileTrackDrums;
@@ -49,12 +50,6 @@ const inputControl = {
   mappings: [],
 };
 
-const platforms = [
-  { start: 0, end: 320, height: 235 },
-  { start: 0, end: 150, height: 180 },
-  { start: 250, end: 320, height: 120 },
-];
-
 async function main() {
   document.getElementById("startMessage").style.display = "none";
   document.getElementById("loadingMessage").style.display = "unset";
@@ -78,6 +73,7 @@ async function main() {
 async function load() {
   const assets = [
     mRenderer.loadImage("sheet_megaman.png").then((data) => (fileSpriteSheet = data)),
+    mRenderer.loadImage("background.png").then((data) => (fileBackground = data)),
     mAudio.loadAudio("audio-sheet_countdown.mp3").then((data) => (fileAudioSheet = data)),
     mAudio.loadAudio("multi-track_leadguitar.mp3").then((data) => (fileTrackGuitar = data)),
     mAudio.loadAudio("multi-track_drums.mp3").then((data) => (fileTrackDrums = data)),
@@ -187,22 +183,18 @@ async function setup() {
   mAnim.addFrame(a, States.NORMAL, 65, 100);
   mAnim.addFrame(a, States.NORMAL, 66, 100);
 
-  mPhysics.setPlatforms(platforms);
-  platforms.forEach((p) => {
-    p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray", true);
-  });
+  await mLogic.init(fileSpriteSheet, fileBackground);
 
-  await mLogic.init(fileSpriteSheet);
-
-  frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", DEBUG_STYLE_INFO, "11px sans-serif");
-  frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", DEBUG_STYLE_INFO, "11px sans-serif");
-  inputControl.extra1 = mRenderer.newRenderableText(90, 0, "LB", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.jump = mRenderer.newRenderableText(110, 0, "X", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.shot = mRenderer.newRenderableText(120, 0, "A", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.xAxisL = mRenderer.newRenderableText(130, 0, "H", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.yAxisL = mRenderer.newRenderableText(140, 0, "V", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.xAxisR = mRenderer.newRenderableText(160, 0, "HR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
-  inputControl.yAxisR = mRenderer.newRenderableText(180, 0, "VR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif");
+  frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", DEBUG_STYLE_INFO, "11px sans-serif", mRenderer.DefaultLayers.GUI);
+  frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", DEBUG_STYLE_INFO, "11px sans-serif", mRenderer.DefaultLayers.GUI);
+  frameControl.textViewport = mRenderer.newRenderableText(0, 10, "0,0", "left", DEBUG_STYLE_INFO, "11px sans-serif", mRenderer.DefaultLayers.GUI);
+  inputControl.extra1 = mRenderer.newRenderableText(90, 0, "LB", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
+  inputControl.jump = mRenderer.newRenderableText(110, 0, "X", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
+  inputControl.shot = mRenderer.newRenderableText(120, 0, "A", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
+  inputControl.xAxisL = mRenderer.newRenderableText(130, 0, "H", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
+  inputControl.yAxisL = mRenderer.newRenderableText(140, 0, "V", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
+  inputControl.xAxisR = mRenderer.newRenderableText(160, 0, "HR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
+  inputControl.yAxisR = mRenderer.newRenderableText(180, 0, "VR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
 
   inputControl.renderables = [];
   const screen = mRenderer.getScreenInfo();
@@ -212,9 +204,9 @@ async function setup() {
   for (const name in mInput.mappings) {
     const m = mInput.mappings[name];
     if (m.isButton) {
-      inputControl.renderables[name] = mRenderer.newRenderableGeometry(x, y, size, size, false, false, "rect", DEBUG_STYLE_RELEASED, m.state === mInput.PRESSED);
+      inputControl.renderables[name] = mRenderer.newRenderableGeometry(x, y, size, size, false, false, "rect", DEBUG_STYLE_RELEASED, m.state === mInput.PRESSED, mRenderer.DefaultLayers.GUI);
     } else {
-      inputControl.renderables[name] = mRenderer.newRenderableGeometry(x, y, size / 2 + (m.value * size) / 2, size, false, false, "rect", DEBUG_STYLE_RELEASED, true);
+      inputControl.renderables[name] = mRenderer.newRenderableGeometry(x, y, size / 2 + (m.value * size) / 2, size, false, false, "rect", DEBUG_STYLE_RELEASED, true, mRenderer.DefaultLayers.GUI);
     }
     y += size + 1;
   }
@@ -255,6 +247,10 @@ function updateDebugInfo(time) {
   if (mInput.isJustPressed("LB")) {
     debugLevel = 1 - debugLevel;
   }
+
+  mRenderer.viewport.x -= Math.sign(mInput.getAxis("HR")) * 3;
+  mRenderer.viewport.y += Math.sign(mInput.getAxis("VR")) * 3;
+
   frameControl.frameCount++;
   if (Math.trunc(currTime) % 1000 === 0) {
     frameControl.fps = frameControl.frameCount;
@@ -262,6 +258,7 @@ function updateDebugInfo(time) {
     frameControl.textFps.text = `${frameControl.fps} fps`;
   }
   frameControl.textSec.text = `${(currTime / 1000).toFixed(1)} s`;
+  frameControl.textViewport.text = `${mRenderer.viewport.x},${mRenderer.viewport.y}`;
   inputControl.extra1.style = selectDebugStyle("LB");
   inputControl.jump.style = selectDebugStyle("A");
   inputControl.shot.style = selectDebugStyle("X");
@@ -272,6 +269,7 @@ function updateDebugInfo(time) {
 
   frameControl.textSec.visible = debugLevel === 1;
   frameControl.textFps.visible = debugLevel === 1;
+  frameControl.textViewport.visible = debugLevel === 1;
   inputControl.extra1.visible = debugLevel === 1;
   inputControl.jump.visible = debugLevel === 1;
   inputControl.shot.visible = debugLevel === 1;
