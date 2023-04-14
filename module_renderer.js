@@ -106,6 +106,11 @@ export function setLayer(id, width, height, zIndex, distance) {
 }
 
 export function render(time) {
+  const actionLayer = layers.find((l) => (l.id = DefaultLayers.ACTION));
+  if (viewport.x < 0) viewport.x = 0;
+  if (viewport.x > actionLayer.canvas.width - viewport.width) viewport.x = actionLayer.canvas.width - viewport.width;
+  if (viewport.y > 0) viewport.y = 0;
+  if (viewport.y < -actionLayer.canvas.height + viewport.height) viewport.y = -actionLayer.canvas.height + viewport.height;
   ctxScreen.fillStyle = "rgb(150, 50, 150)";
   ctxScreen.fillRect(0, 0, SCR_W, SCR_H);
   layers.forEach((layer) => {
@@ -126,7 +131,7 @@ export function render(time) {
         }
       }
     });
-    ctxScreen.setTransform(viewport.scaleX, 0, 0, viewport.scaleY, viewport.x * layer.distance, viewport.y * layer.distance);
+    ctxScreen.setTransform(viewport.scaleX, 0, 0, viewport.scaleY, -viewport.x * layer.distance * viewport.scaleX, viewport.y * layer.distance * viewport.scaleY);
     ctxScreen.drawImage(layer.canvas.transferToImageBitmap(), 0, 0);
   });
 }
@@ -143,6 +148,8 @@ export function renderSprite(r, ctx) {
   ctx.translate(r.posX - r.anchorX * SX * flipX, r.posY - r.anchorY * SY * flipY);
   ctx.scale(flipX, flipY);
   ctx.drawImage(r.spriteSheet, ix * SX, iy * SY, SX, SY, 0, 0, SX, SY);
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, 1, 1);
   ctx.restore();
 }
 

@@ -248,9 +248,6 @@ function updateDebugInfo(time) {
     debugLevel = 1 - debugLevel;
   }
 
-  mRenderer.viewport.x -= Math.sign(mInput.getAxis("HR")) * 3;
-  mRenderer.viewport.y += Math.sign(mInput.getAxis("VR")) * 3;
-
   frameControl.frameCount++;
   if (Math.trunc(currTime) % 1000 === 0) {
     frameControl.fps = frameControl.frameCount;

@@ -13,8 +13,12 @@ let fileSpriteSheet;
 let fileBackground;
 let projectile_id = 0;
 
+const WORLD_W = 1000;
+const WORLD_H = 1000;
+
 const platforms = [
   { start: 0, end: 320, height: 235 },
+  { start: 1, end: 999, height: 994 },
   { start: 0, end: 150, height: 180 },
   { start: 250, end: 500, height: 120 },
   { start: 550, end: 700, height: 60 },
@@ -60,13 +64,13 @@ function newCharacterMegaman(name, x, y, xSpeed, dir) {
 }
 
 export async function init(spriteSheet, backgroundImage) {
-  mRenderer.setLayer("bg", 300, 300, 1, 0.5);
-  mRenderer.setLayer(mRenderer.DefaultLayers.ACTION, 1000, 1000, 0, 1);
+  mRenderer.setLayer("bg", WORLD_W, WORLD_H, 1, 1);
+  mRenderer.setLayer(mRenderer.DefaultLayers.ACTION, WORLD_W, WORLD_H, 0, 1);
   fileSpriteSheet = spriteSheet;
   fileBackground = backgroundImage;
   mRenderer.newRenderableSprite(0, 0, fileBackground.width, fileBackground.height, 0, 0, false, false, fileBackground, 0, "bg");
   platforms.forEach((p) => {
-    p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "gray", true);
+    p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "white", true);
   });
   mPhysics.setPlatforms(platforms);
   newCharacterMegaman("player", 180, 50, 3, 1);
@@ -94,27 +98,30 @@ function removeInactiveObjects(time) {
 }
 
 function updatePlayer(time) {
-  if (objects.length === 1 && objects[0].name === "player") {
+  const player = objects[0];
+  if (objects.length === 1) {
     mAudio.stopTrack(AudioIds.TRACK_GUITAR);
-    objects[0].animator.animationId = AnimationIds.WIN;
-    objects[0].body.dir = 1;
-    objects[0].body.xSpeed = 0;
-    objects[0].body.xAccel = 0;
-    objects[0].body.xDecel = 0;
+    player.animator.animationId = AnimationIds.WIN;
+    player.body.dir = 1;
+    player.body.xSpeed = 0;
+    player.body.xAccel = 0;
+    player.body.xDecel = 0;
     running = false;
-  } else if (objects[0].animator.animationId !== AnimationIds.WIN) {
+  } else if (player.animator.animationId !== AnimationIds.WIN) {
     if (mInput.getAxis("H") !== 0) {
-      objects[0].body.dir = Math.sign(mInput.getAxis("H"));
-      objects[0].body.xAccel = 0.1;
+      player.body.dir = Math.sign(mInput.getAxis("H"));
+      player.body.xAccel = 0.1;
     } else {
-      objects[0].body.xAccel = 0;
+      player.body.xAccel = 0;
     }
-    objects[0].firing = mInput.isJustPressed("X") ? 1 : mInput.isPressed("X") ? -1 : 0;
-    if (mInput.isJustPressed("A") && objects[0].body.floored) {
+    player.firing = mInput.isJustPressed("X") ? 1 : mInput.isPressed("X") ? -1 : 0;
+    if (mInput.isJustPressed("A") && player.body.floored) {
       console.log("JUMP");
-      objects[0].body.yAccel = 1.7;
+      player.body.yAccel = 1.7;
     }
   }
+  mRenderer.viewport.x = player.body.x - mRenderer.viewport.width / 2;
+  mRenderer.viewport.y = mRenderer.viewport.height / 2 - player.body.y + player.body.height;
 }
 
 function updateObjects(time) {
@@ -144,7 +151,7 @@ function updateProjectiles(obj, time) {
     if (obj.animator.animationId === AnimationIds.BALL_FIRED && !obj.animator.playing) {
       obj.animator.animationId = AnimationIds.BALL_GOING;
     }
-    if (obj.body.x < 0 || obj.body.x > 320) {
+    if (obj.body.x < 0 || obj.body.x > WORLD_W) {
       obj.active = false;
     }
     const hitCharacter = objects.filter((c) => c.type === ObjectTypes.CHARACTER).find((c) => mPhysics.collision(c.body, obj.body));
