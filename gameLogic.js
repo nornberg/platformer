@@ -120,6 +120,8 @@ function updatePlayer(time) {
       player.body.yAccel = 1.7;
     }
   }
+  if (player.body.x < 0) player.body.x = 0;
+  else if (player.body.x > WORLD_W) player.body.x = WORLD_W;
   mRenderer.viewport.x = player.body.x - mRenderer.viewport.width / 2;
   mRenderer.viewport.y = mRenderer.viewport.height / 2 - player.body.y + player.body.height;
 }
