@@ -1,20 +1,9 @@
 "use strict";
 
-import * as mAudio from "./module_audio.js";
-import * as mRenderer from "./module_renderer.js";
-import * as mPhysics from "./module_physics.js";
-import * as mInput from "./module_input.js";
-import * as mAnim from "./module_animation.js";
-import * as mLogic from "./gameLogic.js";
-import { AnimationIds, States, AudioIds } from "./constants.js";
+import { main, mRenderer, mAudio, mPhysics, mInput, mAnim } from "./module_main.js";
+import { AnimationIds, States, ObjectTypes, AudioIds } from "./constants.js";
 
-document.getElementById("preloadingMessage").style.display = "none";
-document.getElementById("startMessage").style.display = "unset";
-console.log("WAIT USER ACTION");
-onkeydown = onclick = () => {
-  onkeydown = onclick = undefined;
-  main();
-};
+main({ load, setup, update, cleanup });
 
 let fileSpriteSheet;
 let fileBackground;
@@ -22,53 +11,25 @@ let fileAudioSheet;
 let fileTrackGuitar;
 let fileTrackDrums;
 
-let endTime;
-let requestAnimationFrameId;
-let debugLevel = 1;
+let running = true;
+let debugLevel = 0;
 
-const DEBUG_STYLE_RELEASED = "gray";
-const DEBUG_STYLE_PRESSED = "yellow";
-const DEBUG_STYLE_HOLD = "darkgray";
-const DEBUG_STYLE_AXIS_POS = "lightgreen";
-const DEBUG_STYLE_AXIS_NEG = "red";
-const DEBUG_STYLE_INFO = "white";
+let projectile_id = 0;
 
-const frameControl = {
-  startTime: undefined,
-  fps: 0,
-  frameCount: 0,
-};
+const WORLD_W = 1000;
+const WORLD_H = 1000;
 
-const inputControl = {
-  xAxisL: 0,
-  yAxisL: 0,
-  xAxisR: 0,
-  yAxisR: 0,
-  jump: 0,
-  shot: 0,
-  extra1: 0,
-  mappings: [],
-};
+const platforms = [
+  { start: 0, end: 320, height: 235 },
+  { start: 1, end: 999, height: 994 },
+  { start: 0, end: 150, height: 180 },
+  { start: 250, end: 500, height: 120 },
+  { start: 550, end: 700, height: 60 },
+  { start: 160, end: 500, height: 280 },
+  { start: 400, end: 700, height: 320 },
+];
 
-async function main() {
-  document.getElementById("startMessage").style.display = "none";
-  document.getElementById("loadingMessage").style.display = "unset";
-
-  console.log("LOAD");
-  await load();
-
-  console.log("SETUP");
-  await setup();
-
-  document.getElementById("loadingMessage").style.display = "none";
-  document.getElementById("screen").style.display = "unset";
-  document.getElementById("playMessage").style.display = "unset";
-
-  console.log("START");
-  //playTrack(track_guitar, true);
-  //playTrack(track_drums, true);
-  requestAnimationFrameId = requestAnimationFrame(frame);
-}
+const objects = [];
 
 async function load() {
   const assets = [
@@ -82,12 +43,26 @@ async function load() {
 }
 
 async function setup() {
-  await mRenderer.init("screen", 320, 240);
-  await mAudio.init();
-  await mPhysics.init();
-  await mInput.init();
-  await mAnim.init();
+  await setupInput();
+  await setupAudio();
+  await setupAnimation();
+  await setupLogic();
+}
 
+async function update(time, theDebugLevel) {
+  debugLevel = theDebugLevel;
+  removeInactiveObjects(time);
+  updatePlayer(time);
+  updateObjects(time);
+  return running;
+}
+
+async function cleanup() {
+  mAudio.stopTrack(AudioIds.TRACK_DRUMS);
+  mAudio.stopTrack(AudioIds.TRACK_GUITAR);
+}
+
+async function setupInput() {
   mInput.mapAxis("H", 65, 68, mInput.AXES.lsh, mInput.DPAD.HOR); // teclas A D
   mInput.mapAxis("V", 83, 87, mInput.AXES.lsv, mInput.DPAD.VER); // teclas S W
   mInput.mapAxis("HR", 37, 39, mInput.AXES.rsh); // setas LEFT RIGHT
@@ -102,7 +77,9 @@ async function setup() {
   mInput.mapButton("RT", 34, mInput.BUTTONS.rt); // PAGE DOWN
   mInput.mapButton("SELECT", 8, mInput.BUTTONS.back); // BACKSPACE
   mInput.mapButton("START", 13, mInput.BUTTONS.start); // ENTER
+}
 
+async function setupAudio() {
   await mAudio.setAudioSheet(AudioIds.CHAR_AUDIO_SHEET, fileAudioSheet);
   await mAudio.setTrack(AudioIds.TRACK_GUITAR, fileTrackGuitar);
   await mAudio.setTrack(AudioIds.TRACK_DRUMS, fileTrackDrums);
@@ -113,6 +90,11 @@ async function setup() {
   mAudio.setEffect(AudioIds.EFFECT_BALL_SHOT, AudioIds.CHAR_AUDIO_SHEET, 18.15, 18.2);
   mAudio.setEffect(AudioIds.EFFECT_BALL_HIT, AudioIds.CHAR_AUDIO_SHEET, 14.2, 15);
 
+  mAudio.playTrack(AudioIds.TRACK_DRUMS);
+  mAudio.playTrack(AudioIds.TRACK_GUITAR);
+}
+
+async function setupAnimation() {
   let a = mAnim.setAnimation(AnimationIds.IDLE);
   mAnim.addFrame(a, States.NORMAL, 1, 3000);
   mAnim.addFrame(a, States.NORMAL, 2, 30);
@@ -182,133 +164,255 @@ async function setup() {
   mAnim.addFrame(a, States.NORMAL, 64, 100);
   mAnim.addFrame(a, States.NORMAL, 65, 100);
   mAnim.addFrame(a, States.NORMAL, 66, 100);
+}
 
-  await mLogic.init(fileSpriteSheet, fileBackground);
+async function setupLogic() {
+  mRenderer.setLayer("bg", WORLD_W, WORLD_H, 1, 1);
+  mRenderer.setLayer(mRenderer.DefaultLayers.ACTION, WORLD_W, WORLD_H, 0, 1);
+  mRenderer.newRenderableSprite(0, 0, fileBackground.width, fileBackground.height, 0, 0, false, false, fileBackground, 0, "bg");
+  platforms.forEach((p) => {
+    p.renderable = mRenderer.newRenderableGeometry(p.start, p.height, p.end - p.start, 5, 0, 0, "rect", "white", true);
+  });
+  mPhysics.setPlatforms(platforms);
+  newCharacterMegaman("player", 180, 50, 3, 1);
+  newCharacterMegaman("enemy_01", 20, 180, 2, 1);
+  newCharacterMegaman("enemy_02", 270, 120, 2, -1);
+}
 
-  frameControl.textSec = mRenderer.newRenderableText(0, 0, "sec", "left", DEBUG_STYLE_INFO, "11px sans-serif", mRenderer.DefaultLayers.GUI);
-  frameControl.textFps = mRenderer.newRenderableText(320, 0, "fps", "right", DEBUG_STYLE_INFO, "11px sans-serif", mRenderer.DefaultLayers.GUI);
-  frameControl.textViewport = mRenderer.newRenderableText(0, 10, "0,0", "left", DEBUG_STYLE_INFO, "11px sans-serif", mRenderer.DefaultLayers.GUI);
-  inputControl.extra1 = mRenderer.newRenderableText(90, 0, "LB", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
-  inputControl.jump = mRenderer.newRenderableText(110, 0, "X", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
-  inputControl.shot = mRenderer.newRenderableText(120, 0, "A", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
-  inputControl.xAxisL = mRenderer.newRenderableText(130, 0, "H", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
-  inputControl.yAxisL = mRenderer.newRenderableText(140, 0, "V", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
-  inputControl.xAxisR = mRenderer.newRenderableText(160, 0, "HR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
-  inputControl.yAxisR = mRenderer.newRenderableText(180, 0, "VR", "left", DEBUG_STYLE_RELEASED, "11px sans-serif", mRenderer.DefaultLayers.GUI);
-
-  inputControl.renderables = [];
-  const screen = mRenderer.getScreenInfo();
-  const size = 10;
-  let x = screen.width - size - 1;
-  let y = screen.height / 2 - (Object.keys(mInput.mappings).length * size) / 2 - size;
-  for (const name in mInput.mappings) {
-    const m = mInput.mappings[name];
-    if (m.isButton) {
-      inputControl.renderables[name] = mRenderer.newRenderableGeometry(x, y, size, size, false, false, "rect", DEBUG_STYLE_RELEASED, m.state === mInput.PRESSED, mRenderer.DefaultLayers.GUI);
+function updatePlayer(time) {
+  const player = objects[0];
+  if (objects.length === 1) {
+    mAudio.stopTrack(AudioIds.TRACK_GUITAR);
+    player.animator.animationId = AnimationIds.WIN;
+    player.body.dir = 1;
+    player.body.xSpeed = 0;
+    player.body.xAccel = 0;
+    player.body.xDecel = 0;
+    running = false;
+  } else if (player.animator.animationId !== AnimationIds.WIN) {
+    if (mInput.getAxis("H") !== 0) {
+      player.body.dir = Math.sign(mInput.getAxis("H"));
+      player.body.xAccel = 0.1;
     } else {
-      inputControl.renderables[name] = mRenderer.newRenderableGeometry(x, y, size / 2 + (m.value * size) / 2, size, false, false, "rect", DEBUG_STYLE_RELEASED, true, mRenderer.DefaultLayers.GUI);
+      player.body.xAccel = 0;
     }
-    y += size + 1;
+    player.firing = mInput.isJustPressed("X") ? 1 : mInput.isPressed("X") ? -1 : 0;
+    if (mInput.isJustPressed("A") && player.body.floored) {
+      console.log("JUMP");
+      player.body.yAccel = 1.7;
+    }
   }
-
-  //mAudio.playTrack(AudioIds.TRACK_DRUMS);
-  //mAudio.playTrack(AudioIds.TRACK_GUITAR);
+  if (player.body.x < 0) player.body.x = 0;
+  else if (player.body.x > WORLD_W) player.body.x = WORLD_W;
+  mRenderer.viewport.x = player.body.x - mRenderer.viewport.width / 2;
+  mRenderer.viewport.y = mRenderer.viewport.height / 2 - player.body.y + player.body.height;
 }
 
-function cleanup() {
-  mAudio.stopTrack(AudioIds.TRACK_DRUMS);
-  mAudio.stopTrack(AudioIds.TRACK_GUITAR);
-
-  document.getElementById("screen").style.display = "none";
-  document.getElementById("playMessage").style.display = "none";
-  document.getElementById("endMessage").style.display = "unset";
-
-  console.log("WAIT USER ACTION");
-  onkeydown = onclick = () => {
-    onkeydown = onclick = undefined;
-    location.reload();
-  };
+function updateObjects(time) {
+  objects.forEach((obj) => {
+    if (running) {
+      switch (obj.type) {
+        case ObjectTypes.PROJECTILE:
+          updateProjectiles(obj, time);
+          break;
+        case ObjectTypes.CHARACTER:
+          updateCharacters(obj, time);
+          break;
+      }
+      updatePhysics(obj, time);
+    }
+    updateModules(obj);
+  });
 }
 
-function selectDebugStyle(key, axis) {
-  if (axis) {
-    return mInput.getAxis(key) === 0 ? DEBUG_STYLE_RELEASED : mInput.getAxis(key) > 0 ? DEBUG_STYLE_AXIS_POS : DEBUG_STYLE_AXIS_NEG;
-  } else {
-    return mInput.isJustPressed(key) ? DEBUG_STYLE_PRESSED : mInput.isPressed(key) ? DEBUG_STYLE_HOLD : DEBUG_STYLE_RELEASED;
+function updateProjectiles(obj, time) {
+  if (obj.animator.animationId === AnimationIds.BALL_HIT) {
+    if (!obj.animator.playing) {
+      obj.active = false;
+    }
   }
-}
-
-function updateDebugInfo(time) {
-  if (!frameControl.startTime) {
-    frameControl.startTime = time;
-  }
-  const currTime = time - frameControl.startTime;
-
-  if (mInput.isJustPressed("LB")) {
-    debugLevel = 1 - debugLevel;
-  }
-
-  frameControl.frameCount++;
-  if (Math.trunc(currTime) % 1000 === 0) {
-    frameControl.fps = frameControl.frameCount;
-    frameControl.frameCount = 0;
-    frameControl.textFps.text = `${frameControl.fps} fps`;
-  }
-  frameControl.textSec.text = `${(currTime / 1000).toFixed(1)} s`;
-  frameControl.textViewport.text = `${mRenderer.viewport.x},${mRenderer.viewport.y}`;
-  inputControl.extra1.style = selectDebugStyle("LB");
-  inputControl.jump.style = selectDebugStyle("A");
-  inputControl.shot.style = selectDebugStyle("X");
-  inputControl.xAxisL.style = selectDebugStyle("H", true);
-  inputControl.yAxisL.style = selectDebugStyle("V", true);
-  inputControl.xAxisR.style = selectDebugStyle("HR", true);
-  inputControl.yAxisR.style = selectDebugStyle("VR", true);
-
-  frameControl.textSec.visible = debugLevel === 1;
-  frameControl.textFps.visible = debugLevel === 1;
-  frameControl.textViewport.visible = debugLevel === 1;
-  inputControl.extra1.visible = debugLevel === 1;
-  inputControl.jump.visible = debugLevel === 1;
-  inputControl.shot.visible = debugLevel === 1;
-  inputControl.xAxisL.visible = debugLevel === 1;
-  inputControl.yAxisL.visible = debugLevel === 1;
-  inputControl.xAxisR.visible = debugLevel === 1;
-  inputControl.yAxisR.visible = debugLevel === 1;
-
-  const size = 10;
-  for (const name in inputControl.renderables) {
-    const r = inputControl.renderables[name];
-    const m = mInput.mappings[name];
-    r.visible = debugLevel === 1;
-    if (m.isButton) {
-      r.style = mInput.isJustPressed(name) ? DEBUG_STYLE_PRESSED : mInput.isPressed(name) ? DEBUG_STYLE_HOLD : DEBUG_STYLE_RELEASED;
-      r.filled = mInput.isPressed(name);
-    } else {
-      r.style = m.value !== 0 ? DEBUG_STYLE_PRESSED : DEBUG_STYLE_RELEASED;
-      r.sizeX = size / 2 + (m.value * size) / 2;
-      if (r.sizeX === 0) {
-        r.sizeX = 1;
+  if ([AnimationIds.BALL_FIRED, AnimationIds.BALL_GOING].includes(obj.animator.animationId)) {
+    if (obj.animator.animationId === AnimationIds.BALL_FIRED && !obj.animator.playing) {
+      obj.animator.animationId = AnimationIds.BALL_GOING;
+    }
+    if (obj.body.x < 0 || obj.body.x > WORLD_W) {
+      obj.active = false;
+    }
+    const hitCharacter = objects.filter((c) => c.type === ObjectTypes.CHARACTER).find((c) => mPhysics.collision(c.body, obj.body));
+    if (hitCharacter) {
+      obj.animator.animationId = AnimationIds.BALL_HIT;
+      obj.body.xSpeed = 0;
+      obj.body.xAccel = 0;
+      hitCharacter.isHit = true;
+      hitCharacter.hitTime = time;
+      hitCharacter.energy -= obj.power;
+      if (hitCharacter.energy < 0) {
+        hitCharacter.energy = 0;
       }
     }
   }
-
-  return currTime;
 }
 
-async function frame(time) {
-  const currTime = updateDebugInfo(time);
-  if (currTime - endTime > 3000) {
-    console.log("END");
-    cancelAnimationFrame(requestAnimationFrameId);
-    cleanup();
-  } else {
-    requestAnimationFrameId = requestAnimationFrame(frame);
-    mInput.update(time);
-    if (!mLogic.update(time, debugLevel)) {
-      if (!endTime) endTime = currTime;
+function updateCharacters(obj, time) {
+  if (obj.name !== "player") {
+    obj.body.xAccel = 0.2;
+    if (obj.body.floored && (obj.body.x < obj.body.floor.start || obj.body.x > obj.body.floor.end)) {
+      obj.body.dir *= -1;
     }
-    mAnim.update(time);
-    mRenderer.render(currTime);
-    mAudio.play(currTime);
+  }
+  if (obj.isHit) {
+    obj.animator.animationId = obj.energy === 0 ? AnimationIds.DEATH : AnimationIds.HIT;
+    obj.animator.state = States.NORMAL;
+    obj.body.xAccel = -obj.body.dir;
+    if (time - obj.hitTime > 250) {
+      obj.isHit = false;
+      if (obj.energy === 0) {
+        obj.active = false;
+      }
+    }
+  } else {
+    if (obj.body.ySpeed < 0) {
+      obj.animator.animationId = AnimationIds.JUMP;
+    } else if (obj.body.ySpeed > 0) {
+      obj.animator.animationId = AnimationIds.FALL;
+    } else if (obj.body.xSpeed > 0) {
+      obj.animator.animationId = AnimationIds.WALK;
+    } else {
+      obj.animator.animationId = AnimationIds.IDLE;
+    }
+    if (obj.firing === 0) {
+      obj.animator.state = States.NORMAL;
+    } else {
+      obj.animator.state = States.SHOOTING;
+      if (obj.firing === 1) {
+        newProjectileBall(obj.body.x + obj.body.dir * 27, obj.body.y - 21, obj.body.dir);
+      }
+    }
+  }
+}
+
+function updatePhysics(obj, time) {
+  const yPrev = mPhysics.calcEnvelope(obj.body).y2;
+
+  if (obj.body.xAccel > 0) {
+    obj.body.xSpeed += obj.body.xAccel;
+    if (obj.body.xSpeed > obj.body.xMaxSpeed) {
+      obj.body.xSpeed = obj.body.xMaxSpeed;
+    }
+  } else {
+    obj.body.xSpeed -= obj.body.xDecel;
+    if (obj.body.xSpeed < 0) {
+      obj.body.xSpeed = 0;
+    }
+  }
+
+  if (obj.body.yAccel > 0) {
+    obj.body.ySpeed -= obj.body.yAccel;
+    if (obj.body.ySpeed < -obj.body.yMaxSpeed) {
+      obj.body.ySpeed = -obj.body.yMaxSpeed;
+    }
+    obj.body.yAccel -= obj.body.yDecel;
+    if (obj.body.yAccel < 0) {
+      obj.body.yAccel = 0;
+    }
+  } else if (!obj.body.floored) {
+    obj.body.ySpeed += obj.body.yDecel;
+    if (obj.body.ySpeed < -obj.body.yMaxSpeed) {
+      obj.body.ySpeed = -obj.body.yMaxSpeed;
+    }
+  }
+
+  obj.body.x += obj.body.dir * obj.body.xSpeed;
+  obj.body.y += obj.body.ySpeed;
+
+  mPhysics.checkFloor(obj.body, yPrev);
+  if (obj.body.floored) {
+    obj.body.ySpeed = 0;
+    obj.body.y = obj.body.floor.height;
+  }
+}
+
+function updateModules(obj) {
+  if (obj.playable) {
+    obj.playable.effectId = obj.animator.audioEffectId;
+    obj.playable.playing = obj.playable.effectId != null;
+  }
+  if (obj.renderable) {
+    obj.renderable.posX = obj.body.x;
+    obj.renderable.posY = obj.body.y;
+    obj.renderable.flipX = obj.body.dir < 0;
+    obj.renderable.index = obj.animator.spriteIndex;
+  }
+  if (obj.renderableEnvelope) {
+    const e = mPhysics.calcEnvelope(obj.body);
+    obj.renderableEnvelope.posX = e.x1;
+    obj.renderableEnvelope.posY = e.y1;
+    obj.renderableEnvelope.sizeX = e.x2 - e.x1;
+    obj.renderableEnvelope.sizeY = e.y2 - e.y1;
+    obj.renderableEnvelope.visible = debugLevel === 1;
+  }
+  if (obj.renderableBoundingBox) {
+    obj.renderableBoundingBox.posX = obj.renderable.posX - obj.renderable.anchorX * obj.renderable.sizeX;
+    obj.renderableBoundingBox.posY = obj.renderable.posY - obj.renderable.anchorY * obj.renderable.sizeY;
+    obj.renderableBoundingBox.sizeX = obj.renderable.sizeX;
+    obj.renderableBoundingBox.sizeY = obj.renderable.sizeY;
+    obj.renderableBoundingBox.flipX = obj.renderable.flipX;
+    obj.renderableBoundingBox.flipY = obj.renderable.flipY;
+    obj.renderableBoundingBox.visible = debugLevel === 1;
+  }
+}
+
+function releaseModules(obj) {
+  mRenderer.removeRenderable(obj.renderable);
+  mRenderer.removeRenderable(obj.renderableEnvelope);
+  mRenderer.removeRenderable(obj.renderableBoundingBox);
+  mPhysics.removePhysicsBody(obj.body);
+  mAudio.removePlayable(obj.playable);
+  mAnim.removeAnimator(obj.animator);
+}
+
+function newProjectileBall(x, y, dir) {
+  const projectile = {
+    name: `projectile_ball_${projectile_id++}`,
+    active: true,
+    type: ObjectTypes.PROJECTILE,
+    body: mPhysics.newPhysicsBody(x, y, 10, 10, 5, 0, dir, 5, 0),
+    animator: mAnim.newAnimator(AnimationIds.BALL_FIRED, States.NORMAL),
+    renderable: mRenderer.newRenderableSprite(x, y, 10, 10, 0.5, 0.5, false, false, fileSpriteSheet, 0),
+    playable: mAudio.newPlayableEffect(),
+    power: 1,
+    renderableEnvelope: mRenderer.newRenderableGeometry(x, y, 10, 10, false, false, "rect", "white", false),
+    renderableBoundingBox: mRenderer.newRenderableGeometry(x, y, 0, 0, false, false, "rect", "blue", false),
+  };
+  objects.push(projectile);
+  return projectile;
+}
+
+function newCharacterMegaman(name, x, y, xSpeed, dir) {
+  const character = {
+    name,
+    active: true,
+    type: ObjectTypes.CHARACTER,
+    body: mPhysics.newPhysicsBody(x, y, 24, 40, xSpeed, 8, dir, 0, 0, 0.3, 0.3, false),
+    animator: mAnim.newAnimator(AnimationIds.IDLE, States.NORMAL),
+    renderable: mRenderer.newRenderableSprite(x, y, 24, 40, 0.5, 1, false, false, fileSpriteSheet, 0),
+    playable: mAudio.newPlayableEffect(),
+    energy: 3,
+    lastStepTime: 0,
+    renderableEnvelope: mRenderer.newRenderableGeometry(x, y, 24, 40, false, false, "rect", "white", false),
+    renderableBoundingBox: mRenderer.newRenderableGeometry(x, y, 0, 0, false, false, "rect", "blue", false),
+  };
+  objects.push(character);
+  return character;
+}
+
+function removeInactiveObjects(time) {
+  for (let i = objects.length - 1; i >= 0; i--) {
+    const obj = objects[i];
+    if (!obj.active) {
+      console.log("Removing object " + obj.name);
+      releaseModules(obj);
+      objects.splice(i, 1);
+    }
   }
 }

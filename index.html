@@ -1,12 +1,12 @@
 <!--
   Para rodar o arquivo é necessário colocar a pasta em um servidor web,
   de forma que o script tenha permissão para carregar os arquivos de mídia.
-  Sugestão: http://fenixwebserver.com/
+  Sugestão: https://www.npmjs.com/package/http-server
 
 -->
 <html>
   <head>
-    <title>Plataforma</title>
+    <title>Corrida</title>
     <meta charset="UTF-8" />
     <style>
       html,
@@ -14,7 +14,6 @@
         margin: 0px;
         padding: 0px;
         -webkit-font-smoothing: none;
-        font-family: sans-serif;
       }
 
       #container {
@@ -29,62 +28,14 @@
       }
 
       #screen {
-        display: none;
         background-color: white;
         -webkit-font-smoothing: none;
-      }
-
-      .message {
-        text-align: center;
-        font-size: 180%;
-        color: white;
-        margin-bottom: 60px;
-      }
-
-      .subMessage {
-        font-size: 70%;
-        color: gray;
-        text-align: left;
-        margin-top: 10px;
-      }
-
-      #preloadingMessage {
-        display: block;
-      }
-
-      #loadingMessage {
-        display: none;
-      }
-
-      #startMessage {
-        display: none;
-      }
-
-      #endMessage {
-        display: none;
-      }
-
-      #playMessage {
-        display: none;
       }
     </style>
   </head>
 
   <body id="container">
-    <div id="preloadingMessage" class="message">carregando módulos...</div>
-    <div id="startMessage" class="message">
-      clique ou tecle para iniciar
-      <div class="subMessage">
-        ASDF ou setas - movimento<br />
-        N - pulo<br />
-        M - tiro<br />
-        INS - modo debug
-      </div>
-    </div>
-    <div id="loadingMessage" class="message">carregando conteúdo...</div>
-    <div id="endMessage" class="message">clique ou tecle para recarregar</div>
     <canvas id="screen" width="960" height="720"></canvas>
-    <div id="playMessage" class="subMessage">ASDF | N | M | 1</div>
   </body>
 
   <script type="module" src="game.js"></script>
